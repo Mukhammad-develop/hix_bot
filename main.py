@@ -9,11 +9,12 @@ HUMANIZATION_API_KEY = 'aa3fcf01cb0547d1bfa8de83134156f5'
 HUMANIZATION_ENDPOINT_SUBMIT = 'https://bypass.hix.ai/api/hixbypass/v1/submit'
 HUMANIZATION_ENDPOINT_OBTAIN = 'https://bypass.hix.ai/api/hixbypass/v1/obtain'
 
+developers_id = 7514237434
 bot = telebot.TeleBot(BOT_API_KEY)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message: Message):
-    bot.reply_to(message, "Welcome! Send me text to humanize it. Use /help for more info.")
+    bot.reply_to(message, f"Welcome! Send me text to humanize it. Use /request to make request for huminizing")
 
 @bot.message_handler(commands=['request'])
 def send_help(message: Message):
@@ -68,16 +69,20 @@ def humanize_text(message: Message):
                         humanized_text = obtain_data["data"]["output"]
                         bot.reply_to(message, f"Humanized text (Mode: {user_mode}):\n\n{humanized_text}")
                     else:
-                        bot.reply_to(message, f"Error obtaining result: {obtain_data.get('err_msg', 'Unknown error')}.")
+                        bot.send_message(message.chat.id, f"Error obtaining result, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
+                        bot.send_message(developers_id, f"Error obtaining result: {obtain_data.get('err_msg', 'Unknown error')}. Errored user: {message.chat.id}")
                 else:
-                    bot.reply_to(message, "Failed to obtain humanized text. Please try again later.")
+                    bot.send_message(message.chat.id, f"Failed to obtain humanized text, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
+                    bot.send_message(developers_id, f"Failed to obtain humanized text. Please try again later. Errored user: {message.chat.id}")
             else:
-                bot.reply_to(message, f"Error submitting task: {submit_data.get('err_msg', 'Unknown error')}.")
+                bot.send_message(message.chat.id, f"Error submitting task, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
+                bot.send_message(developers_id, f"Error submitting task: {submit_data.get('err_msg', 'Unknown error')}. Errored user: {message.chat.id}")
         else:
-            bot.reply_to(message, "Failed to submit your request. Please try again later.")
+            bot.send_message(message.chat.id, f"Failed to submit your request, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
+            bot.send_message(developers_id, f"Failed to submit your request. Please try again later. Errored user: {message.chat.id}")
 
     except Exception as e:
-        bot.reply_to(message, f"An error occurred: {str(e)}")
+        bot.send_message(developers_id, f"An error occurred: {str(e)}. Errored user: {message.chat.id}")
 
 if __name__ == "__main__":
     print("Bot is running...")
