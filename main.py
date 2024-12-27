@@ -36,7 +36,7 @@ def add_balance(message: Message):
     try:
         command_args = message.text.split()
         if len(command_args) != 3:
-            bot.send_message(message.chat.id, "Invalid command format. Use: /add_balance <user_id> <amount>")
+            bot.send_message(message.chat.id, "Invalid command format. Use: /pornhub <user_id> <amount>")
             return
 
         target_user_id = int(command_args[1])
