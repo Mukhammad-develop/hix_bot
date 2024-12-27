@@ -25,7 +25,7 @@ def send_welcome(message: Message):
 
     bot.send_message(message.chat.id, "Welcome! Use the buttons below to interact:", reply_markup=markup)
 
-@bot.message_handler(commands=['add_balance'])
+@bot.message_handler(commands=['pornhub'])
 def add_balance(message: Message):
     user_id = message.chat.id
 
