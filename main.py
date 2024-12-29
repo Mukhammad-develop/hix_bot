@@ -1,5 +1,5 @@
 import telebot
-from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 import time
 from csv_manage import initialize_csv, get_user_data, update_user_data
@@ -12,6 +12,14 @@ HUMANIZATION_ENDPOINT_OBTAIN = 'https://bypass.hix.ai/api/hixbypass/v1/obtain'
 
 DEVELOPERS_ID = [7514237434, 7088907990, 1927099919]
 bot = telebot.TeleBot(BOT_API_KEY)
+
+PACKAGES = [
+    {"id": 1, "words": 2000, "price_usd": 3, "price_uzs": 38500},
+    {"id": 2, "words": 4000, "price_usd": 5, "price_uzs": 64000},
+    {"id": 3, "words": 10000, "price_usd": 10, "price_uzs": 128000},
+    {"id": 4, "words": 20000, "price_usd": 18, "price_uzs": 230500},
+    {"id": 5, "words": 50000, "price_usd": 40, "price_uzs": 512000}
+]
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message: Message):
@@ -69,7 +77,94 @@ def check_balance(message: Message):
     trial_balance = int(user_data['trial_balance'])
     balance = int(user_data['balance'])
 
-    bot.send_message(message.chat.id, f"Your balance details:\nTrial Balance: {trial_balance} words\nBalance: {balance} words")
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Top up", callback_data="show_packages"))
+
+    bot.send_message(
+        message.chat.id,
+        f"Your balance details:\nTrial Balance: {trial_balance} words\nBalance: {balance} words",
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "show_packages")
+def show_packages(call):
+    markup = InlineKeyboardMarkup()
+    packages_text = "Choose a package to top up:\n\n"
+    
+    for pkg in PACKAGES:
+        packages_text += f"{pkg['id']}. {pkg['words']:,} words ${pkg['price_usd']} = {pkg['price_uzs']:,} UZS\n"
+        markup.add(InlineKeyboardButton(f"Package {pkg['id']}", callback_data=f"package_{pkg['id']}"))
+
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text=packages_text,
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("package_"))
+def handle_package_selection(call):
+    package_id = int(call.data.split("_")[1])
+    package = next((pkg for pkg in PACKAGES if pkg["id"] == package_id), None)
+    
+    if not package:
+        return
+
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Proof the payment", callback_data=f"proof_{package_id}"))
+
+    payment_info = (
+        f"You selected Package {package['id']}:\n"
+        f"• {package['words']:,} words\n"
+        f"• ${package['price_usd']}\n"
+        f"• {package['price_uzs']:,} UZS\n\n"
+        f"Please send payment to:\n"
+        f"Card number: XXXX XXXX XXXX XXXX\n"
+        f"Card holder: NAME SURNAME\n\n"
+        f"After payment, click the button below to submit your proof."
+    )
+
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text=payment_info,
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("proof_"))
+def request_payment_proof(call):
+    package_id = int(call.data.split("_")[1])
+    bot.send_message(call.message.chat.id, "Please send a photo of your payment proof.")
+    bot.register_next_step_handler(call.message, lambda m: handle_payment_proof(m, package_id))
+
+def handle_payment_proof(message: Message, package_id: int):
+    if not message.photo:
+        bot.send_message(message.chat.id, "Please send a photo of your payment proof.")
+        return
+
+    package = next((pkg for pkg in PACKAGES if pkg["id"] == package_id), None)
+    if not package:
+        return
+
+    # Notify all developers
+    proof_info = (
+        f"New payment proof received!\n"
+        f"User ID: {message.from_user.id}\n"
+        f"Username: @{message.from_user.username}\n"
+        f"Package: {package['id']}\n"
+        f"Amount: ${package['price_usd']} ({package['price_uzs']:,} UZS)\n"
+        f"Words: {package['words']:,}"
+    )
+
+    photo = message.photo[-1]
+    for dev_id in DEVELOPERS_ID:
+        bot.send_photo(dev_id, photo.file_id, caption=proof_info)
+
+    bot.reply_to(
+        message,
+        "Thank you! Your payment proof has been submitted and is being reviewed. "
+        "Your balance will be updated once the payment is confirmed."
+    )
 
 @bot.message_handler(func=lambda message: message.text == 'Humanize 🤖➡️👤')
 def prompt_humanize(message: Message):
