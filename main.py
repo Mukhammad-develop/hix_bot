@@ -318,22 +318,21 @@ def send_csv_files(message: Message):
     user_id = message.chat.id
 
     if user_id not in DEVELOPERS_ID:
-        bot.send_message(user_id, "Вы не авторизованы для использования этой команды.")
+        bot.send_message(user_id, "You are not authorized to use this command.")
         return
 
-    csv_directory = '.'  # Укажите текущую директорию
+    csv_directory = '.'  # Current directory
     csv_files = [f for f in os.listdir(csv_directory) if f.endswith('.csv')]
 
     if not csv_files:
-        bot.send_message(user_id, "Нет доступных CSV файлов для отправки.")
+        bot.send_message(user_id, "No CSV files available.")
         return
 
     for csv_file in csv_files:
-        file_path = os.path.join(csv_directory, csv_file)
-        with open(file_path, 'rb') as file:
-            bot.send_document(user_id, InputFile(file, csv_file))
+        with open(csv_file, 'rb') as file:
+            bot.send_document(user_id, file, visible_file_name=csv_file)
 
-    bot.send_message(user_id, "Все CSV файлы были отправлены.")
+    bot.send_message(user_id, "All CSV files have been sent.")
 
 if __name__ == "__main__":
     initialize_csv()
