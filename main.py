@@ -27,6 +27,11 @@ PACKAGES = [
     {"id": 5, "words": 50000, "price_usd": 35, "price_uzs": round_uzs(35 * UZS_RATE)}
 ]
 
+CHANNEL_ID = '2459567258'  # Replace with your actual channel ID
+
+def send_action_to_channel(action_message):
+    """Send a message to the specified channel."""
+    bot.send_message(CHANNEL_ID, action_message)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message: Message):
@@ -66,6 +71,9 @@ def add_balance(message: Message):
         update_user_data(target_user_id, balance=current_balance + amount)
 
         bot.send_message(message.chat.id, f"Successfully added {amount} words to user {target_user_id}'s balance.")
+        
+        # Send action to channel
+        send_action_to_channel(f"Added {amount} words to user {target_user_id}'s balance by {user_id}.")
     except ValueError:
         bot.send_message(message.chat.id, "Invalid input. Ensure user_id and amount are integers.")
     except Exception as e:
@@ -218,6 +226,9 @@ def handle_payment_decision(call):
         # Update ticket status
         ticket['status'] = 'accepted'
         bot.send_message(user_id, f"Your payment has been accepted. {words} words have been added to your balance.\nIf something seems incorrect, you can contact the admin at @admin.")
+
+        # Send action to channel
+        send_action_to_channel(f"Ticket {ticket_id} accepted. {words} words added to user {user_id}'s balance.")
 
     # Write back the updated rows to the CSV
     with open('balance_top_up.csv', mode='w', newline='') as file:
