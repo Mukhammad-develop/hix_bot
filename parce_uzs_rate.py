@@ -7,7 +7,7 @@ def get_uzs_rate():
         data = response.json()
         for currency in data:
             if currency['Ccy'] == 'USD':
-                print("success : ", currency['Rate'], "-------------------------------------------------------------------\n")
+                print("current rate of USD to UZS : ", currency['Rate'], "-------------------------------------------------------------------\n")
                 return float(currency['Rate'])
     except:
         # Если не удалось получить курс, возвращаем примерный курс
