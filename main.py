@@ -5,6 +5,7 @@ import time
 from csv_manage import initialize_csv, get_user_data, update_user_data, save_payment_to_csv
 from parce_uzs_rate import get_uzs_rate, round_uzs
 import os
+import csv
 
 # Replace 'YOUR_BOT_API_KEY' with your actual bot API key from Telegram
 BOT_API_KEY = '7647257231:AAEl9Su4QPemk8D1iUe0SImL3ct-kDOiWGs'
@@ -164,18 +165,64 @@ def handle_payment_proof(message: Message, package_id: int):
         f"💰 Amount           ${package['price_usd']} ({package['price_uzs']:,} UZS)\n"
         f"📝 Words              {package['words']:,}\n"
         f"⏳ Status              in progress\n"
-        f"📅 Date                 {current_time}"
-    ) 
+        f"📅 Date                 {current_time}\n\n"
+        f"If something seems incorrect, you can contact the admin at @admin."
+    )
 
     photo = message.photo[-1]
     for dev_id in DEVELOPERS_ID:
-        bot.send_photo(dev_id, photo.file_id, caption=proof_info)
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("Accept", callback_data=f"accept_{ticket_id}"),
+            InlineKeyboardButton("Decline", callback_data=f"decline_{ticket_id}")
+        )
+        bot.send_photo(dev_id, photo.file_id, caption=proof_info, reply_markup=markup)
 
     bot.reply_to(
         message,
         "Thank you! Your payment proof has been submitted and is being reviewed. "
         "Your balance will be updated once the payment is confirmed."
     )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("decline_"))
+def handle_payment_decision(call):
+    action, ticket_id = call.data.split("_")
+    ticket_id = int(ticket_id)
+
+    # Read the balance_top_up.csv to find the ticket
+    with open('balance_top_up.csv', mode='r', newline='') as file:
+        reader = csv.DictReader(file)
+        rows = list(reader)
+
+    ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
+    if not ticket:
+        bot.send_message(call.message.chat.id, "Ticket not found.")
+        return
+
+    if action == "accept":
+        # Update user balance
+        user_id = int(ticket['user_id'])
+        words = int(ticket['words'])
+        user_data = get_user_data(user_id)
+        if user_data:
+            new_balance = int(user_data['balance']) + words
+            update_user_data(user_id, balance=new_balance)
+
+        # Update ticket status
+        ticket['status'] = 'accepted'
+        bot.send_message(user_id, f"Your payment has been accepted. {words} words have been added to your balance.")
+    elif action == "decline":
+        # Update ticket status
+        ticket['status'] = 'declined'
+        bot.send_message(int(ticket['user_id']), "Your payment has been declined. Please contact support for more information.")
+
+    # Write back the updated rows to the CSV
+    with open('balance_top_up.csv', mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    bot.send_message(call.message.chat.id, f"Ticket {ticket_id} has been {ticket['status']}.")
 
 @bot.message_handler(func=lambda message: message.text == 'Humanize 🤖➡️👤')
 def prompt_humanize(message: Message):
