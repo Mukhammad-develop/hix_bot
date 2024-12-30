@@ -2,7 +2,8 @@ import telebot
 from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 import time
-from csv_manage import initialize_csv, get_user_data, update_user_data
+from csv_manage import initialize_csv, get_user_data, update_user_data, save_payment_to_csv
+from parce_uzs_rate import get_uzs_rate, round_uzs
 
 # Replace 'YOUR_BOT_API_KEY' with your actual bot API key from Telegram
 BOT_API_KEY = '7647257231:AAEl9Su4QPemk8D1iUe0SImL3ct-kDOiWGs'
@@ -13,12 +14,15 @@ HUMANIZATION_ENDPOINT_OBTAIN = 'https://bypass.hix.ai/api/hixbypass/v1/obtain'
 DEVELOPERS_ID = [7514237434, 7088907990, 1927099919]
 bot = telebot.TeleBot(BOT_API_KEY)
 
+# Получаем текущий курс
+UZS_RATE = get_uzs_rate()
+
 PACKAGES = [
-    {"id": 1, "words": 2000, "price_usd": 3, "price_uzs": 38500},
-    {"id": 2, "words": 4000, "price_usd": 5, "price_uzs": 64000},
-    {"id": 3, "words": 10000, "price_usd": 10, "price_uzs": 128000},
-    {"id": 4, "words": 20000, "price_usd": 18, "price_uzs": 230500},
-    {"id": 5, "words": 50000, "price_usd": 40, "price_uzs": 512000}
+    {"id": 1, "words": 2000, "price_usd": 5, "price_uzs": round_uzs(5 * UZS_RATE)},
+    {"id": 2, "words": 4000, "price_usd": 7, "price_uzs": round_uzs(7 * UZS_RATE)},
+    {"id": 3, "words": 10000, "price_usd": 10, "price_uzs": round_uzs(10 * UZS_RATE)}, 
+    {"id": 4, "words": 20000, "price_usd": 16, "price_uzs": round_uzs(16 * UZS_RATE)},
+    {"id": 5, "words": 50000, "price_usd": 35, "price_uzs": round_uzs(35 * UZS_RATE)}
 ]
 
 @bot.message_handler(commands=['start'])
@@ -147,14 +151,19 @@ def handle_payment_proof(message: Message, package_id: int):
         return
 
     # Notify all developers
+    ticket_id, current_time = save_payment_to_csv(message, package)
+
     proof_info = (
-        f"New payment proof received!\n"
-        f"User ID: {message.from_user.id}\n"
-        f"Username: @{message.from_user.username}\n"
-        f"Package: {package['id']}\n"
-        f"Amount: ${package['price_usd']} ({package['price_uzs']:,} UZS)\n"
-        f"Words: {package['words']:,}"
-    )
+        f"🔔 New payment proof received!\n\n"
+        f"🧾 Ticket ID          {ticket_id}\n"
+        f"👤 User ID            {message.from_user.id}\n"
+        f"📝 Username      @{message.from_user.username}\n"
+        f"📦 Package           {package['id']}\n"
+        f"💰 Amount           ${package['price_usd']} ({package['price_uzs']:,} UZS)\n"
+        f"📝 Words              {package['words']:,}\n"
+        f"⏳ Status              in progress\n"
+        f"📅 Date                 {current_time}"
+    ) 
 
     photo = message.photo[-1]
     for dev_id in DEVELOPERS_ID:

@@ -1,4 +1,7 @@
 import csv
+import os
+from datetime import datetime
+import random
 
 DATABASE_FILE = 'user_data.csv'
 
@@ -43,3 +46,51 @@ def update_user_data(user_id, trial_balance=None, balance=None):
         writer = csv.DictWriter(file, fieldnames=['user_id', 'trial_balance', 'balance'])
         writer.writeheader()
         writer.writerows(rows)
+
+# проверка на уникальность ticket_id
+def generate_unique_ticket_id(csv_file_path):
+    existing_ids = set()
+
+    # Чтение существующих ticket_id из CSV
+    with open(csv_file_path, mode='r', newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            existing_ids.add(int(row['ticket_id']))
+
+    # Генерация уникального ticket_id
+    while True:
+        ticket_id = random.randint(100000, 999999)
+        if ticket_id not in existing_ids:
+            return ticket_id
+
+# сохранение платежа в csv
+def save_payment_to_csv(message, package):
+    ticket_id = generate_unique_ticket_id('balance_top_up.csv')
+    current_time = datetime.now().strftime("%d/%m/%Y %H:%M")
+    
+    ticket_data = {
+        'ticket_id': ticket_id,
+        'user_id': message.from_user.id,
+        'username': f"@{message.from_user.username}",
+        'package': package['id'],
+        'amount_usd': package['price_usd'],
+        'amount_uzs': package['price_uzs'],
+        'words': package['words'],
+        'status': 'in progress',
+        'date': current_time
+    }
+    
+    file_exists = os.path.exists('balance_top_up.csv')
+    
+    with open('balance_top_up.csv', 'a', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=[
+            'ticket_id', 'user_id', 'username', 'package',
+            'amount_usd', 'amount_uzs', 'words', 'status', 'date'
+        ])
+        
+        if not file_exists:
+            writer.writeheader()
+            
+        writer.writerow(ticket_data)
+    
+    return ticket_id, current_time
