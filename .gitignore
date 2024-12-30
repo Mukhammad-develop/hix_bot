@@ -2,4 +2,4 @@
 .env
 user_data.csv
 balance_top_up.csv
-_pycache_
+__pycache__/
