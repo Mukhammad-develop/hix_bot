@@ -184,9 +184,15 @@ def handle_payment_proof(message: Message, package_id: int):
         "Your balance will be updated once the payment is confirmed."
     )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("decline_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
 def handle_payment_decision(call):
-    action, ticket_id = call.data.split("_")
+    # Split the call.data and handle cases with more than one underscore
+    parts = call.data.split("_", 1)
+    if len(parts) != 2:
+        bot.send_message(call.message.chat.id, "Invalid data format.")
+        return
+
+    action, ticket_id = parts
     ticket_id = int(ticket_id)
 
     # Read the balance_top_up.csv to find the ticket
@@ -199,9 +205,10 @@ def handle_payment_decision(call):
         bot.send_message(call.message.chat.id, "Ticket not found.")
         return
 
+    user_id = int(ticket['user_id'])
+
     if action == "accept":
         # Update user balance
-        user_id = int(ticket['user_id'])
         words = int(ticket['words'])
         user_data = get_user_data(user_id)
         if user_data:
@@ -210,11 +217,7 @@ def handle_payment_decision(call):
 
         # Update ticket status
         ticket['status'] = 'accepted'
-        bot.send_message(user_id, f"Your payment has been accepted. {words} words have been added to your balance.")
-    elif action == "decline":
-        # Update ticket status
-        ticket['status'] = 'declined'
-        bot.send_message(int(ticket['user_id']), "Your payment has been declined. Please contact support for more information.")
+        bot.send_message(user_id, f"Your payment has been accepted. {words} words have been added to your balance.\nIf something seems incorrect, you can contact the admin at @admin.")
 
     # Write back the updated rows to the CSV
     with open('balance_top_up.csv', mode='w', newline='') as file:
