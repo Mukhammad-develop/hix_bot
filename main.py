@@ -1,9 +1,10 @@
 import telebot
-from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 import requests
 import time
 from csv_manage import initialize_csv, get_user_data, update_user_data, save_payment_to_csv
 from parce_uzs_rate import get_uzs_rate, round_uzs
+import os
 
 # Replace 'YOUR_BOT_API_KEY' with your actual bot API key from Telegram
 BOT_API_KEY = '7647257231:AAEl9Su4QPemk8D1iUe0SImL3ct-kDOiWGs'
@@ -24,6 +25,7 @@ PACKAGES = [
     {"id": 4, "words": 20000, "price_usd": 16, "price_uzs": round_uzs(16 * UZS_RATE)},
     {"id": 5, "words": 50000, "price_usd": 35, "price_uzs": round_uzs(35 * UZS_RATE)}
 ]
+
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message: Message):
@@ -263,6 +265,28 @@ def humanize_text(message: Message):
     except Exception as e:
         for i in range(len(DEVELOPERS_ID)):
             bot.send_message(DEVELOPERS_ID[i], f"An error occurred: {str(e)}. Errored user: {message.chat.id}")
+
+@bot.message_handler(commands=['send_csv'])
+def send_csv_files(message: Message):
+    user_id = message.chat.id
+
+    if user_id not in DEVELOPERS_ID:
+        bot.send_message(user_id, "Вы не авторизованы для использования этой команды.")
+        return
+
+    csv_directory = '.'  # Укажите текущую директорию
+    csv_files = [f for f in os.listdir(csv_directory) if f.endswith('.csv')]
+
+    if not csv_files:
+        bot.send_message(user_id, "Нет доступных CSV файлов для отправки.")
+        return
+
+    for csv_file in csv_files:
+        file_path = os.path.join(csv_directory, csv_file)
+        with open(file_path, 'rb') as file:
+            bot.send_document(user_id, InputFile(file, csv_file))
+
+    bot.send_message(user_id, "Все CSV файлы были отправлены.")
 
 if __name__ == "__main__":
     initialize_csv()
