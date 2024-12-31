@@ -28,7 +28,7 @@ PACKAGES = [
     {"id": 5, "words": 50000, "price_usd": 35, "price_uzs": round_uzs(35 * UZS_RATE)}
 ]
 
-CHANNEL_ID = '2459567258'  # Replace with your actual channel ID
+CHANNEL_ID = '-1002459567258'  # Replace with your actual channel link
 
 def send_action_to_channel(action_message):
     """Send a message to the specified channel."""
@@ -49,15 +49,18 @@ def send_welcome(message: Message):
 @bot.message_handler(commands=['pornhub'])
 def add_balance(message: Message):
     user_id = message.chat.id
+    user_username = message.from_user.username or "No username"
 
     if user_id not in DEVELOPERS_ID:
         bot.send_message(message.chat.id, "You are not authorized to use this command.")
+        send_action_to_channel(f"Unauthorized access attempt to /pornhub command by user {user_id} (@{user_username})")
         return
 
     try:
         command_args = message.text.split()
         if len(command_args) != 3:
             bot.send_message(message.chat.id, "Invalid command format. Use: /pornhub <user_id> <amount>")
+            send_action_to_channel(f"Invalid command format used by admin {user_id} (@{user_username})")
             return
 
         target_user_id = int(command_args[1])
@@ -66,6 +69,7 @@ def add_balance(message: Message):
         user_data = get_user_data(target_user_id)
         if not user_data:
             bot.send_message(message.chat.id, "User not found.")
+            send_action_to_channel(f"Admin {user_id} (@{user_username}) attempted to add balance for non-existent user {target_user_id}")
             return
 
         current_balance = int(user_data['balance'])
@@ -80,11 +84,14 @@ def add_balance(message: Message):
         bot.send_message(message.chat.id, f"Successfully added {amount} words to user {target_user_id}'s balance.")
         
         # Send action to channel
-        send_action_to_channel(f"Added {amount} words to user {target_user_id}'s balance by {user_id}.")
+        send_action_to_channel(f"Admin {user_id} (@{user_username}) added {amount} words to user {target_user_id}'s balance, new balance: {current_balance + amount} words")
     except ValueError:
         bot.send_message(message.chat.id, "Invalid input. Ensure user_id and amount are integers.")
+        send_action_to_channel(f"Admin {user_id} (@{user_username}) provided invalid input for /pornhub command")
     except Exception as e:
-        bot.send_message(message.chat.id, f"An error occurred: {str(e)}")
+        error_msg = f"An error occurred: {str(e)}"
+        bot.send_message(message.chat.id, error_msg)
+        send_action_to_channel(f"Error in /pornhub command by admin {user_id} (@{user_username}): {error_msg}")
 
 
 @bot.message_handler(func=lambda message: message.text == 'Balance 💰')
@@ -240,6 +247,9 @@ def handle_payment_decision(call):
         # Update ticket status
         ticket['status'] = 'accepted'
         bot.send_message(user_id, f"Your payment has been accepted. {words} words have been added to your balance.\nIf something seems incorrect, you can contact the admin at @admin.")
+
+        # Send detailed info to channel
+        send_action_to_channel(f"Ticket {ticket_id} accepted. {words} words added to user {user_id}'s balance. New balance: {new_balance} words.")
     elif action == "decline":
         # Update ticket status
         ticket['status'] = 'declined'
@@ -253,9 +263,6 @@ def handle_payment_decision(call):
         )
         # Send the markup to the admin
         bot.send_message(call.message.chat.id, "Select the reason for declining the payment:", reply_markup=markup)
-
-        # Send action to channel
-        send_action_to_channel(f"Ticket {ticket_id} accepted. {words} words added to user {user_id}'s balance.")
 
     # Write back the updated rows to the CSV
     with open('balance_top_up.csv', mode='w', newline='') as file:
@@ -297,6 +304,9 @@ def handle_decline_reason(call):
 
     # Отправить сообщение пользователю
     bot.send_message(user_id, decline_message)
+
+    # Send detailed info to channel with reason
+    send_action_to_channel(f"Ticket {ticket_id} declined for user {user_id}. Reason: {reason}")
 
     # Обновить сообщение для админа, убрав кнопки
     bot.edit_message_reply_markup(
