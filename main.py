@@ -188,7 +188,6 @@ def handle_payment_proof(message: Message, package_id: int):
         f"📝 Words              {package['words']:,}\n"
         f"⏳ Status              in progress\n"
         f"📅 Date                 {current_time}\n\n"
-        f"If something seems incorrect, you can contact the admin at @admin."
     )
 
     photo = message.photo[-1]
@@ -202,8 +201,16 @@ def handle_payment_proof(message: Message, package_id: int):
 
     bot.reply_to(
         message,
-        "Thank you! Your payment proof has been submitted and is being reviewed. "
-        "Your balance will be updated once the payment is confirmed."
+        f"🧾 Ticket ID          {ticket_id}\n"
+        f"👤 User ID            {message.from_user.id}\n"
+        f"📝 Username      @{message.from_user.username}\n"
+        f"📦 Package           {package['id']}\n"
+        f"💰 Amount           ${package['price_usd']} ({package['price_uzs']:,} UZS)\n"
+        f"📝 Words              {package['words']:,}\n"
+        f"⏳ Status              in progress\n"
+        f"📅 Date                 {current_time}\n\n"
+        "\nThank you! Your payment proof has been submitted and is being reviewed. "
+        "Your balance will be updated once the payment is confirmed by moderators."
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("decline_"))
@@ -246,10 +253,10 @@ def handle_payment_decision(call):
 
         # Update ticket status
         ticket['status'] = 'accepted'
-        bot.send_message(user_id, f"Your payment has been accepted. {words} words have been added to your balance.\nIf something seems incorrect, you can contact the admin at @admin.")
+        bot.send_message(user_id, f"✅\nYour payment has been accepted. {words} words have been added to your balance. \n\n🎉   Your new balance is {new_balance} words.")
 
         # Send detailed info to channel
-        send_action_to_channel(f"Ticket {ticket_id} accepted. {words} words added to user {user_id}'s balance. New balance: {new_balance} words.")
+        send_action_to_channel(f"✅\nTicket {ticket_id} accepted. {words} words added to \n\nUSER_ID: #{user_id} \nUSERNAME: @{ticket['username']} \nNEW BALANCE: {new_balance} words.")
     elif action == "decline":
         # Update ticket status
         ticket['status'] = 'declined'
@@ -270,7 +277,6 @@ def handle_payment_decision(call):
         writer.writeheader()
         writer.writerows(rows)
 
-    bot.send_message(call.message.chat.id, f"Ticket {ticket_id} has been {ticket['status']}.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("decline_amount_") or call.data.startswith("decline_received_") or call.data.startswith("decline_proof_"))
 def handle_decline_reason(call):
@@ -296,23 +302,20 @@ def handle_decline_reason(call):
 
     # Сообщения для пользователя
     if reason == "amount":
-        decline_message = "Your payment was declined due to incorrect amount. Please try again with the correct amount.\n\nIf you think this is a mistake, please contact the admin at @admin."
-    elif reason == "received":
-        decline_message = "Your payment was declined because it was not received. Please ensure the payment was sent correctly.\n\nIf you think this is a mistake, please contact the admin at @admin."
+        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to the payment amount incorrect.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
+    elif reason == "received": 
+        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined because the payment was not received. Please ensure the payment was sent correctly.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
     elif reason == "proof":
-        decline_message = "Your payment was declined due to an issue with the proof provided. Please send a clearer proof of payment.\n\nIf you think this is a mistake, please contact the admin at @admin."
+        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to an issue with the proof provided in the screenshot of the payment. Please send a clearer proof of payment.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
 
     # Отправить сообщение пользователю
     bot.send_message(user_id, decline_message)
-
-    # Send detailed info to channel with reason
-    send_action_to_channel(f"Ticket {ticket_id} declined for user {user_id}. Reason: {reason}")
-
+    
     # Обновить сообщение для админа, убрав кнопки
-    bot.edit_message_reply_markup(
-        chat_id=admin_id,
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
         message_id=call.message.message_id,
-        reply_markup=None
+        text=f"‼️\nTicket {ticket_id} has been declined."
     )
     
     # Подтверждение для админа
@@ -320,6 +323,16 @@ def handle_decline_reason(call):
         call.id,
         text=f"Decline reason sent to user. Reason: {reason}"
     )
+
+    if reason == "proof":
+        reason = "Proof issue"
+    elif reason == "received":
+        reason = "Payment not received"
+    elif reason == "amount":
+        reason = "Payment incorrect amount"
+
+    # Send detailed info to channel with reason
+    send_action_to_channel(f"‼️\nTicket {ticket_id} declined for user\n\nUSER_ID: #{user_id} \nUSERNAME: @{ticket['username']} \nREASON: {reason}")
 
 @bot.message_handler(func=lambda message: message.text == 'Humanize 🤖➡️👤')
 def prompt_humanize(message: Message):
