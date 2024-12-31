@@ -2,6 +2,7 @@ import telebot
 from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 import requests
 import time
+from datetime import datetime
 from csv_manage import initialize_csv, get_user_data, update_user_data, save_payment_to_csv
 from parce_uzs_rate import get_uzs_rate, round_uzs
 import os
@@ -69,6 +70,12 @@ def add_balance(message: Message):
 
         current_balance = int(user_data['balance'])
         update_user_data(target_user_id, balance=current_balance + amount)
+
+        # Сохранение данных в CSV файл
+        with open('balance_updates.csv', mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(['user_id', 'units', 'datetime'])  # Добавление названий столбцов
+            writer.writerow([target_user_id, amount, datetime.now().strftime("%d/%m/%Y %H:%M")])
 
         bot.send_message(message.chat.id, f"Successfully added {amount} words to user {target_user_id}'s balance.")
         
