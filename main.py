@@ -184,28 +184,35 @@ def handle_payment_proof(message: Message, package_id: int):
         "Your balance will be updated once the payment is confirmed."
     )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("decline_"))
 def handle_payment_decision(call):
-    # Split the call.data and handle cases with more than one underscore
+    # Если это callback для причины отклонения, передаем его другому обработчику
+    if any(call.data.startswith(f"decline_{reason}_") for reason in ["amount", "received", "proof"]):
+        handle_decline_reason(call)
+        return
+
     parts = call.data.split("_", 1)
     if len(parts) != 2:
         bot.send_message(call.message.chat.id, "Invalid data format.")
         return
 
     action, ticket_id = parts
-    ticket_id = int(ticket_id)
+    try:
+        ticket_id = int(ticket_id)
+    except ValueError:
+        bot.send_message(call.message.chat.id, "Invalid ticket ID format.")
+        return
 
     # Read the balance_top_up.csv to find the ticket
     with open('balance_top_up.csv', mode='r', newline='') as file:
         reader = csv.DictReader(file)
-        rows = list(reader)
-
-    ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
-    if not ticket:
-        bot.send_message(call.message.chat.id, "Ticket not found.")
-        return
-
-    user_id = int(ticket['user_id'])
+        rows = list(reader)  # Сначала сохраняем строки
+        ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
+        if ticket:
+            user_id = int(ticket['user_id'])
+        else:
+            bot.send_message(call.message.chat.id, "Ticket not found.")
+            return
 
     if action == "accept":
         # Update user balance
@@ -218,6 +225,19 @@ def handle_payment_decision(call):
         # Update ticket status
         ticket['status'] = 'accepted'
         bot.send_message(user_id, f"Your payment has been accepted. {words} words have been added to your balance.\nIf something seems incorrect, you can contact the admin at @admin.")
+    elif action == "decline":
+        # Update ticket status
+        ticket['status'] = 'declined'
+
+        # Create reply markup with buttons for decline reasons
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("Payment incorrect amount", callback_data=f"decline_amount_{ticket_id}"),
+            InlineKeyboardButton("Payment not received", callback_data=f"decline_received_{ticket_id}"),
+            InlineKeyboardButton("Proof issue", callback_data=f"decline_proof_{ticket_id}")
+        )
+        # Send the markup to the admin
+        bot.send_message(call.message.chat.id, "Select the reason for declining the payment:", reply_markup=markup)
 
     # Write back the updated rows to the CSV
     with open('balance_top_up.csv', mode='w', newline='') as file:
@@ -226,6 +246,52 @@ def handle_payment_decision(call):
         writer.writerows(rows)
 
     bot.send_message(call.message.chat.id, f"Ticket {ticket_id} has been {ticket['status']}.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("decline_amount_") or call.data.startswith("decline_received_") or call.data.startswith("decline_proof_"))
+def handle_decline_reason(call):
+    parts = call.data.split("_", 2)
+    if len(parts) != 3:
+        bot.send_message(call.message.chat.id, "Invalid data format.")
+        return
+
+    action, reason, ticket_id = parts
+    ticket_id = int(ticket_id)
+    admin_id = call.message.chat.id
+
+    # Найти user_id из CSV по ticket_id
+    with open('balance_top_up.csv', mode='r', newline='') as file:
+        reader = csv.DictReader(file)
+        rows = list(reader)  # Сначала сохраняем строки
+        ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
+        if ticket:
+            user_id = int(ticket['user_id'])
+        else:
+            bot.send_message(admin_id, "Ticket not found.")
+            return
+
+    # Сообщения для пользователя
+    if reason == "amount":
+        decline_message = "Your payment was declined due to incorrect amount. Please try again with the correct amount.\n\nIf you think this is a mistake, please contact the admin at @admin."
+    elif reason == "received":
+        decline_message = "Your payment was declined because it was not received. Please ensure the payment was sent correctly.\n\nIf you think this is a mistake, please contact the admin at @admin."
+    elif reason == "proof":
+        decline_message = "Your payment was declined due to an issue with the proof provided. Please send a clearer proof of payment.\n\nIf you think this is a mistake, please contact the admin at @admin."
+
+    # Отправить сообщение пользователю
+    bot.send_message(user_id, decline_message)
+
+    # Обновить сообщение для админа, убрав кнопки
+    bot.edit_message_reply_markup(
+        chat_id=admin_id,
+        message_id=call.message.message_id,
+        reply_markup=None
+    )
+    
+    # Подтверждение для админа
+    bot.answer_callback_query(
+        call.id,
+        text=f"Decline reason sent to user. Reason: {reason}"
+    )
 
 @bot.message_handler(func=lambda message: message.text == 'Humanize 🤖➡️👤')
 def prompt_humanize(message: Message):
