@@ -341,10 +341,16 @@ def humanize_text(message: Message):
             "api-key": HUMANIZATION_API_KEY,
             "Content-Type": "application/json"
         }
-        submit_response = requests.post(HUMANIZATION_ENDPOINT_SUBMIT, json=submit_payload, headers=headers)
+        submit_response = True #requests.post(HUMANIZATION_ENDPOINT_SUBMIT, json=submit_payload, headers=headers)
 
-        if submit_response.status_code == 200:
-            submit_data = submit_response.json()
+        if True: #submit_response.status_code == 200
+            submit_data = {"err_code": 0,
+                            "err_msg": "string",
+                            "data": {
+                                "task_id": "string"
+                            }
+                        } #submit_response.json()
+        
             if submit_data.get("err_code") == 0:
                 task_id = submit_data["data"]["task_id"]
 
@@ -355,27 +361,46 @@ def humanize_text(message: Message):
                     bot.send_message(message.chat.id, f"Processing... ({i + 1}/3)")
 
                 # Step 2: Obtain the humanized text using the task_id
-                obtain_response = requests.get(
-                    HUMANIZATION_ENDPOINT_OBTAIN, 
-                    params={"task_id": task_id}, 
-                    headers=headers
-                )
+                obtain_response = True #requests.get(HUMANIZATION_ENDPOINT_OBTAIN, params={"task_id": task_id}, headers=headers)
 
-                if obtain_response.status_code == 200:
-                    obtain_data = obtain_response.json()
-                    if obtain_data.get("err_code") == 0:
+                if True: #obtain_response.status_code == 200
+                    obtain_data = {
+                                    "err_code": 0,
+                                    "err_msg": "Success",
+                                    "data": {
+                                        "input": "How to Give a Great Gift to Someone\n\n\nChoosing the perfect gift for someone can be a delightful experience when you consider their preferences and interests. Here's a guide on how to give a great gift that will be appreciated and cherished:\n\n\n1. Know the Recipient: Take the time to understand the person you're buying for. Consider their hobbies, interests, and personality. What makes them happy?\n\n\n2. Listen and Observe: Pay attention to any hints or mentions of things they want or need. Sometimes, people drop subtle hints about what they'd like as a gift.\n\n\n3. Consider Practicality: A useful gift can be just as thoughtful as a sentimental one. Think about what would make the recipient's life easier or more enjoyable.",
+                                        "input_words": 122,
+                                        "task_id": "2c451bac-c5ea-4e77-a21a-23ebc14ba47f",
+                                        "words_used": 97,
+                                        "output": "How to Give a Great Gift to Someone\n\nChoosing the perfect present for another requires deep reflection on their passions and pursuits. A guide for bestowing a gift certain to be cherished:\n\n1. Fathoming the recipient entails comprehending their diversions, interests, and persona. What lifts their spirit? \n\n2. Heed hints and allusions to objects they covet or necessities they require, whether oblique or overt. Subtle signposts sometimes indicate coveted offerings.\n\n3. Pondering usefulness alongside sentiment, a present easing life or amplifying joy merits equal thought. Consider how your selection may delight through facilitating pleasure or alleviating burden.",
+                                        "subtask_status": "completed",
+                                        "task_status": True,
+                                        "detection_result": "human",
+                                        "detection_score": 100,
+                                        "mode": "Fast"
+                                    }
+                                } #obtain_response.json()
+                    if obtain_data.get("err_code") == 0 or True:
                         humanized_text = obtain_data["data"]["output"]
                         words_used = int(obtain_data["data"]["words_used"])
 
                         bot.reply_to(message, f"Humanized text (Mode: {user_mode}):\n\n{humanized_text}")
 
                         # Deduct words used from trial balance first, then balance
-                        if trial_balance >= words_used:
-                            update_user_data(user_id, trial_balance=trial_balance - words_used)
-                        else:
-                            bot.send_message(message.chat.id, f"Error obtaining result, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
-                            for i in range(len(DEVELOPERS_ID)):
-                                bot.send_message(DEVELOPERS_ID[i], f"Error obtaining result: {obtain_data.get('err_msg', 'Unknown error')}. Errored user: {message.chat.id}")
+                        try:
+                            if trial_balance >= words_used:
+                                update_user_data(user_id, trial_balance=trial_balance - words_used)
+                            elif trial_balance + balance >= words_used:
+                                remaining_words = words_used - trial_balance
+                                update_user_data(user_id, trial_balance=0, balance=balance - remaining_words)
+                            else:
+                                bot.send_message(message.chat.id, "You have insufficient balance. Please top up your balance.")
+                                return
+                        except Exception as e:
+                            error_message = f"An error occurred: {str(e)}. Errored user: {message.chat.id}"
+                            for dev_id in DEVELOPERS_ID:
+                                bot.send_message(dev_id, error_message)
+                            bot.send_message(message.chat.id, "An error occurred. The issue has been reported to the admin.")
                     else:
                         bot.send_message(message.chat.id, f"Failed to obtain humanized text, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
                         for i in range(len(DEVELOPERS_ID)):
