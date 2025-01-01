@@ -36,6 +36,7 @@ def send_action_to_channel(action_message):
     """Send a message to the specified channel."""
     bot.send_message(CHANNEL_ID, action_message)
 
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message: Message):
     user_id = message.chat.id
@@ -44,7 +45,11 @@ def send_welcome(message: Message):
 
     # Create reply markup with buttons
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton('Humanize 🤖➡️👤'), KeyboardButton('Balance 💰'))
+    markup.add(
+        KeyboardButton('Humanize 🤖➡️👤'),
+        KeyboardButton('Balance 💰'),
+        KeyboardButton('Top up history 📜')
+    )
 
     bot.send_message(message.chat.id, "Welcome! Use the buttons below to interact:", reply_markup=markup)
 
@@ -266,7 +271,18 @@ def handle_payment_decision(call):
             
             # Send notifications
             bot.send_message(user_id, f"✅\nYour payment has been accepted. {words} words have been added to your balance. \n\n🎉   Your new balance is {new_balance} words.")
-            send_action_to_channel(f"✅\nTicket {ticket_id} accepted. {words} words added to \n\nUSER_ID: #{user_id} \nUSERNAME: {ticket['username']} \nNEW BALANCE: {new_balance} words.")
+            send_action_to_channel(
+                f"✅ Ticket Accepted\n\n"
+                f"🧾 Ticket ID: {ticket_id}\n"
+                f"👤 User ID: {user_id}\n"
+                f"📝 Username: {ticket['username']}\n"
+                f"📦 Package: {ticket['package']}\n"
+                f"💰 Amount: ${ticket['amount_usd']} ({ticket['amount_uzs']} UZS)\n"
+                f"📝 Words: {ticket['words']}\n"
+                f"⏳ Status: accepted\n"
+                f"📅 Date: {ticket['date']}\n"
+                f"🎉 New Balance: {new_balance} words"
+            )
 
             # Delete messages from all developers and clean up
             for dev_id, message_id in dev_messages.items():
@@ -276,6 +292,15 @@ def handle_payment_decision(call):
                     print(f"Failed to delete message {message_id} for developer {dev_id}: {str(e)}")
             
             del PENDING_PROOFS[ticket_id]
+
+            # Update the status in the ticket_data.csv
+            for row in rows:
+                if int(row['ticket_id']) == ticket_id:
+                    row['status'] = 'accepted'
+                    break
+
+            # Save the updated rows back to the CSV
+            handle_payment_decision_to_csv('ticket_data.csv', rows, reader.fieldnames)
 
     elif action == "decline":
         ticket['status'] = 'declined'
@@ -346,8 +371,19 @@ def handle_decline_reason(call):
     elif reason == "amount":
         reason = "Payment incorrect amount"
 
-    # Send detailed info to channel with reason
-    send_action_to_channel(f"‼️\nTicket {ticket_id} declined for user\n\nUSER_ID: #{user_id} \nUSERNAME: {ticket['username']} \nREASON: {reason}")
+    # Send detailed ticket info to channel with reason
+    send_action_to_channel(
+        f"‼️ Ticket Declined\n\n"
+        f"🧾 Ticket ID: {ticket_id}\n"
+        f"👤 User ID: {user_id}\n"
+        f"📝 Username: {ticket['username']}\n"
+        f"📦 Package: {ticket['package']}\n"
+        f"💰 Amount: ${ticket['amount_usd']} ({ticket['amount_uzs']} UZS)\n"
+        f"📝 Words: {ticket['words']}\n"
+        f"⏳ Status: declined\n"
+        f"📅 Date: {ticket['date']}\n"
+        f"❌ Reason: {reason}"
+    )
 
     # Delete messages and clean up after declining
     dev_messages = PENDING_PROOFS.get(ticket_id)
@@ -495,6 +531,71 @@ def send_csv_files(message: Message):
             bot.send_document(user_id, file, visible_file_name=csv_file)
 
     bot.send_message(user_id, "All CSV files have been sent.")
+
+@bot.message_handler(func=lambda message: message.text == 'Balance 💰')
+def show_top_up_history(message: Message):
+    user_id = message.chat.id
+    user_data = get_user_data(user_id)
+
+    if not user_data:
+        bot.send_message(message.chat.id, "Please use /start to register first.")
+        return
+
+    # Read the top-up history from the ticket_data.csv
+    history = []
+    try:
+        with open('ticket_data.csv', mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if int(row['user_id']) == user_id and row['status'] == 'accepted':
+                    history.append(f"Package: {row['package']}, Amount: ${row['amount_usd']} ({row['amount_uzs']} UZS), Date: {row['date']}")
+    except FileNotFoundError:
+        bot.send_message(message.chat.id, "No top-up history found.")
+        return
+
+    if not history:
+        bot.send_message(message.chat.id, "No top-up history found.")
+    else:
+        history_text = "\n".join(history)
+        bot.send_message(message.chat.id, f"Your top-up history:\n{history_text}")
+
+@bot.message_handler(func=lambda message: message.text == 'Top up history 📜')
+def show_all_tickets(message: Message):
+    user_id = message.chat.id
+    user_data = get_user_data(user_id)
+
+    if not user_data:
+        bot.send_message(message.chat.id, "Please use /start to register first.")
+        return
+
+    # Read all tickets from the ticket_data.csv
+    tickets = []
+    try:
+        with open('ticket_data.csv', mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if int(row['user_id']) == user_id:
+                    ticket_info = (
+                        f"🧾 Ticket ID: {row['ticket_id']}\n"
+                        f"👤 User ID: {row['user_id']}\n"
+                        f"📝 Username: {row['username']}\n"
+                        f"📦 Package: {row['package']}\n"
+                        f"💰 Amount: ${row['amount_usd']} ({row['amount_uzs']} UZS)\n"
+                        f"📝 Words: {row['words']}\n"
+                        f"⏳ Status: {row['status']}\n"
+                        f"📅 Date: {row['date']}\n"
+                        "----------------------------------------"
+                    )
+                    tickets.append(ticket_info)
+    except FileNotFoundError:
+        bot.send_message(message.chat.id, "No ticket history found.")
+        return
+
+    if not tickets:
+        bot.send_message(message.chat.id, "No ticket history found.")
+    else:
+        tickets_text = "\n\n".join(tickets)
+        bot.send_message(message.chat.id, f"Your ticket history:\n\n{tickets_text}")
 
 if __name__ == "__main__":
     initialize_csv()
