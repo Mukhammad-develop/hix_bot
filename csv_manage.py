@@ -14,6 +14,15 @@ def initialize_csv():
     except FileExistsError:
         pass
 
+def initialize_ticket_data_csv():
+    if not os.path.exists('ticket_data.csv'):
+        with open('ticket_data.csv', mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=[
+                'ticket_id', 'user_id', 'username', 'package',
+                'amount_usd', 'amount_uzs', 'words', 'status', 'date'
+            ])
+            writer.writeheader()
+
 # Read user data from the CSV
 def get_user_data(user_id):
     with open(DATABASE_FILE, mode='r') as file:
@@ -21,6 +30,14 @@ def get_user_data(user_id):
         for row in reader:
             if int(row['user_id']) == user_id:
                 return row
+    return None
+
+def get_username(user_id, csv_file_path='ticket_data.csv'):
+    with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if int(row['user_id']) == user_id:
+                return row['username']
     return None
 
 # Update or insert user data in the CSV
@@ -65,7 +82,7 @@ def generate_unique_ticket_id(csv_file_path):
 
 # сохранение платежа в csv
 def save_payment_to_csv(message, package):
-    ticket_id = generate_unique_ticket_id('balance_top_up.csv')
+    ticket_id = generate_unique_ticket_id('ticket_data.csv')
     current_time = datetime.now().strftime("%d/%m/%Y %H:%M")
     
     ticket_data = {
@@ -80,9 +97,9 @@ def save_payment_to_csv(message, package):
         'date': current_time
     }
     
-    file_exists = os.path.exists('balance_top_up.csv')
+    file_exists = os.path.exists('ticket_data.csv')
     
-    with open('balance_top_up.csv', 'a', newline='') as file:
+    with open('ticket_data.csv', 'a', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=[
             'ticket_id', 'user_id', 'username', 'package',
             'amount_usd', 'amount_uzs', 'words', 'status', 'date'
@@ -94,3 +111,16 @@ def save_payment_to_csv(message, package):
         writer.writerow(ticket_data)
     
     return ticket_id, current_time
+
+def handle_payment_decision_to_csv(file_path, rows, fieldnames):
+    with open(file_path, mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+def balance_updates_to_csv(target_user_id, amount, datetime):
+    with open('balance_updates.csv', mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(['user_id', 'units', 'datetime'])  # Добавление названий столбцов
+        writer.writerow([target_user_id, amount, datetime])
+

@@ -1,9 +1,9 @@
 import telebot
 from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 import requests
-import time
 from datetime import datetime
-from csv_manage import initialize_csv, get_user_data, update_user_data, save_payment_to_csv
+import time
+from csv_manage import initialize_csv, get_user_data, update_user_data, save_payment_to_csv, handle_payment_decision_to_csv, balance_updates_to_csv, get_username, initialize_ticket_data_csv
 from parce_uzs_rate import get_uzs_rate, round_uzs
 import os
 import csv
@@ -73,25 +73,24 @@ def add_balance(message: Message):
             return
 
         current_balance = int(user_data['balance'])
-        update_user_data(target_user_id, balance=current_balance + amount)
+        new_balance = current_balance + amount
+        update_user_data(target_user_id, balance=new_balance)
 
-        # Сохранение данных в CSV файл
-        with open('balance_updates.csv', mode='a', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(['user_id', 'units', 'datetime'])  # Добавление названий столбцов
-            writer.writerow([target_user_id, amount, datetime.now().strftime("%d/%m/%Y %H:%M")])
+        datetime_now = datetime.now().strftime("%d/%m/%Y %H:%M")
+        balance_updates_to_csv(target_user_id, amount, datetime_now)
 
         bot.send_message(message.chat.id, f"Successfully added {amount} words to user {target_user_id}'s balance.")
         
         # Send action to channel
-        send_action_to_channel(f"Admin {user_id} (@{user_username}) added {amount} words to user {target_user_id}'s balance, new balance: {current_balance + amount} words")
+        target_username = get_username(target_user_id)
+        send_action_to_channel(f"✅\n /pornhub were been used and\n {amount} words added to: \n\nUSER_ID: #{target_user_id} \nUSERNAME: {target_username} \nNEW BALANCE: {new_balance} words.")
     except ValueError:
         bot.send_message(message.chat.id, "Invalid input. Ensure user_id and amount are integers.")
-        send_action_to_channel(f"Admin {user_id} (@{user_username}) provided invalid input for /pornhub command")
+        send_action_to_channel(f"‼️Admin {user_id} (@{user_username}) provided invalid input for /pornhub command")
     except Exception as e:
-        error_msg = f"An error occurred: {str(e)}"
+        error_msg = f"‼️An error occurred: {str(e)}"
         bot.send_message(message.chat.id, error_msg)
-        send_action_to_channel(f"Error in /pornhub command by admin {user_id} (@{user_username}): {error_msg}")
+        send_action_to_channel(f"‼️Error in /pornhub command by admin {user_id} (@{user_username}): {error_msg}")
 
 
 @bot.message_handler(func=lambda message: message.text == 'Balance 💰')
@@ -177,7 +176,7 @@ def handle_payment_proof(message: Message, package_id: int):
 
     # Notify all developers
     ticket_id, current_time = save_payment_to_csv(message, package)
-
+    
     proof_info = (
         f"🔔 New payment proof received!\n\n"
         f"🧾 Ticket ID          {ticket_id}\n"
@@ -233,7 +232,7 @@ def handle_payment_decision(call):
         return
 
     # Read the balance_top_up.csv to find the ticket
-    with open('balance_top_up.csv', mode='r', newline='') as file:
+    with open('ticket_data.csv', mode='r', newline='') as file:
         reader = csv.DictReader(file)
         rows = list(reader)  # Сначала сохраняем строки
         ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
@@ -241,7 +240,7 @@ def handle_payment_decision(call):
             user_id = int(ticket['user_id'])
         else:
             bot.send_message(call.message.chat.id, "Ticket not found.")
-            return
+            return 
 
     if action == "accept":
         # Update user balance
@@ -272,10 +271,7 @@ def handle_payment_decision(call):
         bot.send_message(call.message.chat.id, "Select the reason for declining the payment:", reply_markup=markup)
 
     # Write back the updated rows to the CSV
-    with open('balance_top_up.csv', mode='w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    handle_payment_decision_to_csv('ticket_data.csv', rows, reader.fieldnames)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("decline_amount_") or call.data.startswith("decline_received_") or call.data.startswith("decline_proof_"))
@@ -290,7 +286,7 @@ def handle_decline_reason(call):
     admin_id = call.message.chat.id
 
     # Найти user_id из CSV по ticket_id
-    with open('balance_top_up.csv', mode='r', newline='') as file:
+    with open('ticket_data.csv', mode='r', newline='') as file:
         reader = csv.DictReader(file)
         rows = list(reader)  # Сначала сохраняем строки
         ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
@@ -471,5 +467,6 @@ def send_csv_files(message: Message):
 
 if __name__ == "__main__":
     initialize_csv()
+    initialize_ticket_data_csv()
     print("Bot is running...")
     bot.polling()
