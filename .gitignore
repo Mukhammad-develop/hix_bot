@@ -1,5 +1,6 @@
 .venv
 .env
 user_data.csv
-balance_top_up.csv
+balance_updates.csv
+ticket_data.csv
 __pycache__/

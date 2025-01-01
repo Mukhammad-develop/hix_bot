@@ -30,6 +30,8 @@ PACKAGES = [
 
 CHANNEL_ID = '-1002459567258'  # Replace with your actual channel link
 
+PENDING_PROOFS = {}  # Store message IDs for pending proofs: {ticket_id: {dev_id: message_id}}
+
 def send_action_to_channel(action_message):
     """Send a message to the specified channel."""
     bot.send_message(CHANNEL_ID, action_message)
@@ -60,7 +62,7 @@ def add_balance(message: Message):
         command_args = message.text.split()
         if len(command_args) != 3:
             bot.send_message(message.chat.id, "Invalid command format. Use: /pornhub <user_id> <amount>")
-            send_action_to_channel(f"Invalid command format used by admin {user_id} (@{user_username})")
+            send_action_to_channel(f"Invalid command format used by admin {user_id} ({user_username})")
             return
 
         target_user_id = int(command_args[1])
@@ -69,7 +71,7 @@ def add_balance(message: Message):
         user_data = get_user_data(target_user_id)
         if not user_data:
             bot.send_message(message.chat.id, "User not found.")
-            send_action_to_channel(f"Admin {user_id} (@{user_username}) attempted to add balance for non-existent user {target_user_id}")
+            send_action_to_channel(f"Admin {user_id} ({user_username}) attempted to add balance for non-existent user {target_user_id}")
             return
 
         current_balance = int(user_data['balance'])
@@ -86,11 +88,11 @@ def add_balance(message: Message):
         send_action_to_channel(f"✅\n /pornhub were been used and\n {amount} words added to: \n\nUSER_ID: #{target_user_id} \nUSERNAME: {target_username} \nNEW BALANCE: {new_balance} words.")
     except ValueError:
         bot.send_message(message.chat.id, "Invalid input. Ensure user_id and amount are integers.")
-        send_action_to_channel(f"‼️Admin {user_id} (@{user_username}) provided invalid input for /pornhub command")
+        send_action_to_channel(f"‼️Admin {user_id} ({user_username}) provided invalid input for /pornhub command")
     except Exception as e:
         error_msg = f"‼️An error occurred: {str(e)}"
         bot.send_message(message.chat.id, error_msg)
-        send_action_to_channel(f"‼️Error in /pornhub command by admin {user_id} (@{user_username}): {error_msg}")
+        send_action_to_channel(f"‼️Error in /pornhub command by admin {user_id} ({user_username}): {error_msg}")
 
 
 @bot.message_handler(func=lambda message: message.text == 'Balance 💰')
@@ -190,13 +192,19 @@ def handle_payment_proof(message: Message, package_id: int):
     )
 
     photo = message.photo[-1]
+    dev_messages = {}  # Store message IDs for each developer
+    
     for dev_id in DEVELOPERS_ID:
         markup = InlineKeyboardMarkup()
         markup.add(
-            InlineKeyboardButton("Accept", callback_data=f"accept_{ticket_id}"),
-            InlineKeyboardButton("Decline", callback_data=f"decline_{ticket_id}")
+            InlineKeyboardButton("Accept", callback_data=f"accept_{ticket_id}_{dev_id}"),
+            InlineKeyboardButton("Decline", callback_data=f"decline_{ticket_id}_{dev_id}")
         )
-        bot.send_photo(dev_id, photo.file_id, caption=proof_info, reply_markup=markup)
+        sent_msg = bot.send_photo(dev_id, photo.file_id, caption=proof_info, reply_markup=markup)
+        dev_messages[dev_id] = sent_msg.message_id
+
+    # Store message IDs in global variable
+    PENDING_PROOFS[ticket_id] = dev_messages
 
     bot.reply_to(
         message,
@@ -214,65 +222,76 @@ def handle_payment_proof(message: Message, package_id: int):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("decline_"))
 def handle_payment_decision(call):
-    # Если это callback для причины отклонения, передаем его другому обработчику
+    # Skip if it's a decline reason callback
     if any(call.data.startswith(f"decline_{reason}_") for reason in ["amount", "received", "proof"]):
         handle_decline_reason(call)
         return
 
-    parts = call.data.split("_", 1)
-    if len(parts) != 2:
+    parts = call.data.split("_")
+    if len(parts) != 3:
         bot.send_message(call.message.chat.id, "Invalid data format.")
         return
 
-    action, ticket_id = parts
+    action, ticket_id, dev_id = parts
     try:
         ticket_id = int(ticket_id)
+        dev_id = int(dev_id)
     except ValueError:
-        bot.send_message(call.message.chat.id, "Invalid ticket ID format.")
+        bot.send_message(call.message.chat.id, "Invalid format.")
         return
 
-    # Read the balance_top_up.csv to find the ticket
+    # Read ticket data from CSV
     with open('ticket_data.csv', mode='r', newline='') as file:
         reader = csv.DictReader(file)
-        rows = list(reader)  # Сначала сохраняем строки
+        rows = list(reader)
         ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
-        if ticket:
-            user_id = int(ticket['user_id'])
-        else:
+        if not ticket:
             bot.send_message(call.message.chat.id, "Ticket not found.")
-            return 
+            return
+        
+        user_id = int(ticket['user_id'])
+
+    # Get message IDs from global variable
+    dev_messages = PENDING_PROOFS.get(ticket_id)
+    if not dev_messages:
+        bot.send_message(call.message.chat.id, "Ticket not found or already processed.")
+        return
 
     if action == "accept":
-        # Update user balance
         words = int(ticket['words'])
         user_data = get_user_data(user_id)
         if user_data:
             new_balance = int(user_data['balance']) + words
             update_user_data(user_id, balance=new_balance)
+            
+            # Send notifications
+            bot.send_message(user_id, f"✅\nYour payment has been accepted. {words} words have been added to your balance. \n\n🎉   Your new balance is {new_balance} words.")
+            send_action_to_channel(f"✅\nTicket {ticket_id} accepted. {words} words added to \n\nUSER_ID: #{user_id} \nUSERNAME: {ticket['username']} \nNEW BALANCE: {new_balance} words.")
 
-        # Update ticket status
-        ticket['status'] = 'accepted'
-        bot.send_message(user_id, f"✅\nYour payment has been accepted. {words} words have been added to your balance. \n\n🎉   Your new balance is {new_balance} words.")
+            # Delete messages from all developers and clean up
+            for dev_id, message_id in dev_messages.items():
+                try:
+                    bot.delete_message(dev_id, message_id)
+                except Exception as e:
+                    print(f"Failed to delete message {message_id} for developer {dev_id}: {str(e)}")
+            
+            del PENDING_PROOFS[ticket_id]
 
-        # Send detailed info to channel
-        send_action_to_channel(f"✅\nTicket {ticket_id} accepted. {words} words added to \n\nUSER_ID: #{user_id} \nUSERNAME: @{ticket['username']} \nNEW BALANCE: {new_balance} words.")
     elif action == "decline":
-        # Update ticket status
         ticket['status'] = 'declined'
-
-        # Create reply markup with buttons for decline reasons
         markup = InlineKeyboardMarkup()
         markup.add(
             InlineKeyboardButton("Payment incorrect amount", callback_data=f"decline_amount_{ticket_id}"),
             InlineKeyboardButton("Payment not received", callback_data=f"decline_received_{ticket_id}"),
             InlineKeyboardButton("Proof issue", callback_data=f"decline_proof_{ticket_id}")
         )
-        # Send the markup to the admin
-        bot.send_message(call.message.chat.id, "Select the reason for declining the payment:", reply_markup=markup)
+        bot.edit_message_reply_markup(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=markup
+        )
 
-    # Write back the updated rows to the CSV
     handle_payment_decision_to_csv('ticket_data.csv', rows, reader.fieldnames)
-
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("decline_amount_") or call.data.startswith("decline_received_") or call.data.startswith("decline_proof_"))
 def handle_decline_reason(call):
@@ -285,10 +304,10 @@ def handle_decline_reason(call):
     ticket_id = int(ticket_id)
     admin_id = call.message.chat.id
 
-    # Найти user_id из CSV по ticket_id
+    # Find user_id from CSV by ticket_id
     with open('ticket_data.csv', mode='r', newline='') as file:
         reader = csv.DictReader(file)
-        rows = list(reader)  # Сначала сохраняем строки
+        rows = list(reader)
         ticket = next((row for row in rows if int(row['ticket_id']) == ticket_id), None)
         if ticket:
             user_id = int(ticket['user_id'])
@@ -296,7 +315,7 @@ def handle_decline_reason(call):
             bot.send_message(admin_id, "Ticket not found.")
             return
 
-    # Сообщения для пользователя
+    # Messages for user
     if reason == "amount":
         decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to the payment amount incorrect.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
     elif reason == "received": 
@@ -304,17 +323,17 @@ def handle_decline_reason(call):
     elif reason == "proof":
         decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to an issue with the proof provided in the screenshot of the payment. Please send a clearer proof of payment.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
 
-    # Отправить сообщение пользователю
+    # Send message to user
     bot.send_message(user_id, decline_message)
     
-    # Обновить сообщение для админа, убрав кнопки
-    bot.edit_message_text(
+    # Update admin's message caption instead of text
+    bot.edit_message_caption(
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
-        text=f"‼️\nTicket {ticket_id} has been declined."
+        caption=f"‼️\nTicket {ticket_id} has been declined."
     )
     
-    # Подтверждение для админа
+    # Confirmation for admin
     bot.answer_callback_query(
         call.id,
         text=f"Decline reason sent to user. Reason: {reason}"
@@ -328,7 +347,19 @@ def handle_decline_reason(call):
         reason = "Payment incorrect amount"
 
     # Send detailed info to channel with reason
-    send_action_to_channel(f"‼️\nTicket {ticket_id} declined for user\n\nUSER_ID: #{user_id} \nUSERNAME: @{ticket['username']} \nREASON: {reason}")
+    send_action_to_channel(f"‼️\nTicket {ticket_id} declined for user\n\nUSER_ID: #{user_id} \nUSERNAME: {ticket['username']} \nREASON: {reason}")
+
+    # Delete messages and clean up after declining
+    dev_messages = PENDING_PROOFS.get(ticket_id)
+    if dev_messages:
+        for dev_id, message_id in dev_messages.items():
+            try:
+                bot.delete_message(dev_id, message_id)
+            except Exception as e:
+                print(f"Failed to delete message {message_id} for developer {dev_id}: {str(e)}")
+        
+        # Clean up the stored message IDs
+        del PENDING_PROOFS[ticket_id]
 
 @bot.message_handler(func=lambda message: message.text == 'Humanize 🤖➡️👤')
 def prompt_humanize(message: Message):
