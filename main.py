@@ -7,6 +7,7 @@ from csv_manage import initialize_csv, get_user_data, update_user_data, save_pay
 from parce_uzs_rate import get_uzs_rate, round_uzs
 import os
 import csv
+import random
 
 # Replace 'YOUR_BOT_API_KEY' with your actual bot API key from Telegram
 BOT_API_KEY = '7647257231:AAEl9Su4QPemk8D1iUe0SImL3ct-kDOiWGs'
@@ -14,6 +15,7 @@ HUMANIZATION_API_KEY = 'aa3fcf01cb0547d1bfa8de83134156f5'
 HUMANIZATION_ENDPOINT_SUBMIT = 'https://bypass.hix.ai/api/hixbypass/v1/submit'
 HUMANIZATION_ENDPOINT_OBTAIN = 'https://bypass.hix.ai/api/hixbypass/v1/obtain'
 
+user_mode = "Latest"
 DEVELOPERS_ID = [7514237434, 7088907990, 1927099919]
 bot = telebot.TeleBot(BOT_API_KEY)
 
@@ -31,6 +33,8 @@ PACKAGES = [
 CHANNEL_ID = '-1002459567258'  # Replace with your actual channel link
 
 PENDING_PROOFS = {}  # Store message IDs for pending proofs: {ticket_id: {dev_id: message_id}}
+
+bot_data = {}
 
 def send_action_to_channel(action_message):
     """Send a message to the specified channel."""
@@ -419,10 +423,80 @@ def handle_decline_reason(call):
 
 @bot.message_handler(func=lambda message: message.text == 'Humanize 🤖➡️👤')
 def prompt_humanize(message: Message):
-    bot.send_message(message.chat.id, "Send me the text you'd like to humanize. Make sure it has at least 50 words.")
-    bot.register_next_step_handler(message, humanize_text)
+    bot.send_message(message.chat.id, "Send me the text you'd like to humanize. You can send multiple messages. Tap 'Done' when you're finished.")
+    
+    # Initialize a session to collect text
+    user_id = message.chat.id
+    bot_data[user_id] = {"text": "", "collecting": True}
 
-def humanize_text(message: Message):
+    # Create reply markup with a "Done" button
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(KeyboardButton('Done'))
+    bot.send_message(message.chat.id, "Waiting for your text...", reply_markup=markup)
+
+@bot.message_handler(func=lambda message: message.text == 'Done')
+def finish_text_collection(message: Message):
+    user_id = message.chat.id
+    if user_id in bot_data and bot_data[user_id]["collecting"]:
+        bot_data[user_id]["collecting"] = False
+        collected_text = bot_data[user_id]["text"]
+        
+        # Check if the collected text contains at least 50 words
+        if len(collected_text.split()) < 50:
+            bot.send_message(message.chat.id, "The input text must contain at least 50 words. Please continue sending your text.")
+            bot_data[user_id]["collecting"] = True  # Allow user to continue sending text
+            return
+        
+        # Send initial processing message
+        status_message = bot.send_message(message.chat.id, "Processing your text...", reply_markup=ReplyKeyboardMarkup())
+        
+        # Define loading messages
+        loading_messages = [
+            "Processing your text.",
+            "Processing your text..",
+            "Processing your text...",
+            "Almost there...",
+            "Just a moment...",
+            "Hang tight..."
+        ]
+        
+        # Randomly choose a duration between 15 and 30 seconds
+        loading_duration = random.randint(15, 30)
+        
+        # Simulate typing and change messages
+        for i in range(loading_duration):
+            bot.send_chat_action(message.chat.id, 'typing')
+            try:
+                bot.edit_message_text(
+                    chat_id=message.chat.id,
+                    message_id=status_message.message_id,  # Use the status message ID
+                    text=f"{loading_messages[i % len(loading_messages)]}"+f'{i}'+'/'+f'{loading_duration}'
+                )
+            except Exception as e:
+                print(f"Failed to edit message: {e}")
+            time.sleep(1)
+        
+        # Proceed to humanize the collected text
+        humanize_text(message, collected_text)
+    else:
+        bot.send_message(message.chat.id, "No text collected. Please start again.")
+
+@bot.message_handler(func=lambda message: message.chat.id in bot_data and bot_data[message.chat.id]["collecting"])
+def collect_text(message: Message):
+    user_id = message.chat.id
+    if user_id in bot_data:
+        bot_data[user_id]["text"] += " " + message.text
+        
+        # Calculate the current word count
+        word_count = len(bot_data[user_id]["text"].split())
+        
+        # Notify the user that the text has been saved and show the word count
+        bot.send_message(
+            message.chat.id,
+            f"Your text has been saved. Current word count: {word_count}. You can continue sending messages or tap 'Done' when finished."
+        )
+
+def humanize_text(message: Message, text: str):
     user_id = message.chat.id
     user_data = get_user_data(user_id)
 
@@ -437,99 +511,39 @@ def humanize_text(message: Message):
         bot.send_message(message.chat.id, "You have no remaining trials or balance. Please contact support for more access.")
         return
 
-    text = message.text
-    user_mode = "Latest"
-
     if len(text.split()) < 50:
         bot.send_message(message.chat.id, "The input text must contain at least 50 words.")
         return
 
     try:
-        # Step 1: Submit the text for humanization
-        submit_payload = {
-            "input": text,
-            "mode": user_mode
-        }
-        headers = {
-            "api-key": HUMANIZATION_API_KEY,
-            "Content-Type": "application/json"
-        }
-        submit_response = True #requests.post(HUMANIZATION_ENDPOINT_SUBMIT, json=submit_payload, headers=headers)
+        # Simulate the humanization process
+        humanized_text = "Simulated humanized text"  # Replace with actual humanization logic
 
-        if True: #submit_response.status_code == 200
-            submit_data = {"err_code": 0,
-                            "err_msg": "string",
-                            "data": {
-                                "task_id": "string"
-                            }
-                        } #submit_response.json()
-        
-            if submit_data.get("err_code") == 0:
-                task_id = submit_data["data"]["task_id"]
+        bot.reply_to(message, f"Humanized text (Mode: {user_mode}):\n\n{humanized_text}")
 
-                # Simulate loading with typing action
-                bot.send_chat_action(message.chat.id, 'typing')
-                for i in range(3):
-                    time.sleep(1)
-                    bot.send_message(message.chat.id, f"Processing... ({i + 1}/3)")
+        # Deduct words used from trial balance first, then balance
+        words_used = 50  # Example word count
+        if trial_balance >= words_used:
+            update_user_data(user_id, trial_balance=trial_balance - words_used)
+        elif trial_balance + balance >= words_used:
+            remaining_words = words_used - trial_balance
+            update_user_data(user_id, trial_balance=0, balance=balance - remaining_words)
+        else:
+            bot.send_message(message.chat.id, "You have insufficient balance. Please top up your balance.")
+            return
 
-                # Step 2: Obtain the humanized text using the task_id
-                obtain_response = True #requests.get(HUMANIZATION_ENDPOINT_OBTAIN, params={"task_id": task_id}, headers=headers)
-
-                if True: #obtain_response.status_code == 200
-                    obtain_data = {
-                                    "err_code": 0,
-                                    "err_msg": "Success",
-                                    "data": {
-                                        "input": "How to Give a Great Gift to Someone\n\n\nChoosing the perfect gift for someone can be a delightful experience when you consider their preferences and interests. Here's a guide on how to give a great gift that will be appreciated and cherished:\n\n\n1. Know the Recipient: Take the time to understand the person you're buying for. Consider their hobbies, interests, and personality. What makes them happy?\n\n\n2. Listen and Observe: Pay attention to any hints or mentions of things they want or need. Sometimes, people drop subtle hints about what they'd like as a gift.\n\n\n3. Consider Practicality: A useful gift can be just as thoughtful as a sentimental one. Think about what would make the recipient's life easier or more enjoyable.",
-                                        "input_words": 122,
-                                        "task_id": "2c451bac-c5ea-4e77-a21a-23ebc14ba47f",
-                                        "words_used": 97,
-                                        "output": "How to Give a Great Gift to Someone\n\nChoosing the perfect present for another requires deep reflection on their passions and pursuits. A guide for bestowing a gift certain to be cherished:\n\n1. Fathoming the recipient entails comprehending their diversions, interests, and persona. What lifts their spirit? \n\n2. Heed hints and allusions to objects they covet or necessities they require, whether oblique or overt. Subtle signposts sometimes indicate coveted offerings.\n\n3. Pondering usefulness alongside sentiment, a present easing life or amplifying joy merits equal thought. Consider how your selection may delight through facilitating pleasure or alleviating burden.",
-                                        "subtask_status": "completed",
-                                        "task_status": True,
-                                        "detection_result": "human",
-                                        "detection_score": 100,
-                                        "mode": "Fast"
-                                    }
-                                } #obtain_response.json()
-                    if obtain_data.get("err_code") == 0 or True:
-                        humanized_text = obtain_data["data"]["output"]
-                        words_used = int(obtain_data["data"]["words_used"])
-
-                        bot.reply_to(message, f"Humanized text (Mode: {user_mode}):\n\n{humanized_text}")
-
-                        # Deduct words used from trial balance first, then balance
-                        try:
-                            if trial_balance >= words_used:
-                                update_user_data(user_id, trial_balance=trial_balance - words_used)
-                            elif trial_balance + balance >= words_used:
-                                remaining_words = words_used - trial_balance
-                                update_user_data(user_id, trial_balance=0, balance=balance - remaining_words)
-                            else:
-                                bot.send_message(message.chat.id, "You have insufficient balance. Please top up your balance.")
-                                return
-                        except Exception as e:
-                            error_message = f"An error occurred: {str(e)}. Errored user: {message.chat.id}"
-                            for dev_id in DEVELOPERS_ID:
-                                bot.send_message(dev_id, error_message)
-                            bot.send_message(message.chat.id, "An error occurred. The issue has been reported to the admin.")
-                    else:
-                        bot.send_message(message.chat.id, f"Failed to obtain humanized text, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
-                        for i in range(len(DEVELOPERS_ID)):
-                            bot.send_message(DEVELOPERS_ID[i], f"Failed to obtain humanized text. Please try again later. Errored user: {message.chat.id}")
-                else:
-                    bot.send_message(message.chat.id, f"Error submitting task, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
-                    for i in range(len(DEVELOPERS_ID)):
-                        bot.send_message(DEVELOPERS_ID[i], f"Error submitting task: {submit_data.get('err_msg', 'Unknown error')}. Errored user: {message.chat.id}")
-            else:
-                bot.send_message(message.chat.id, f"Failed to submit your request, it already have been sent to developer, will be fixed soon. \nPlease try again later.")
-                for i in range(len(DEVELOPERS_ID)):
-                    bot.send_message(DEVELOPERS_ID[i], f"Failed to submit your request. Please try again later. Errored user: {message.chat.id}")
+        # Add main menu reply markup
+        main_menu_markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        main_menu_markup.add(
+            KeyboardButton('Humanize 🤖➡️👤'),
+            KeyboardButton('Balance 💰'),
+            KeyboardButton('Top up history 📜')
+        )
+        bot.send_message(message.chat.id, "Main menu:", reply_markup=main_menu_markup)
 
     except Exception as e:
-        for i in range(len(DEVELOPERS_ID)):
-            bot.send_message(DEVELOPERS_ID[i], f"An error occurred: {str(e)}. Errored user: {message.chat.id}")
+        for dev_id in DEVELOPERS_ID:
+            bot.send_message(dev_id, f"An error occurred: {str(e)}. Errored user: {message.chat.id}")
 
 @bot.message_handler(commands=['send_csv'])
 def send_csv_files(message: Message):
