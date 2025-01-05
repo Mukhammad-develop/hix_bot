@@ -99,7 +99,13 @@ def add_balance(message: Message):
 
         datetime_now = datetime.now().strftime("%d/%m/%Y %H:%M")
         balance_updates_to_csv(target_user_id, amount, datetime_now)
-
+        bot.send_message(
+            target_user_id,
+            f"🎉 Your balance has been updated!\n\n"
+            f"🔹 **Amount Added:** {amount} words\n"
+            f"🔹 **New Balance:** {new_balance} words",
+            parse_mode='Markdown'
+        )
         bot.send_message(
             message.chat.id,
             f"✅ Successfully added {amount} words to user {target_user_id}'s balance.",
