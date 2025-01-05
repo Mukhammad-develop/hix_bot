@@ -10,7 +10,7 @@ import csv
 import random
 
 # Replace 'YOUR_BOT_API_KEY' with your actual bot API key from Telegram
-BOT_API_KEY = '7647257231:AAEl9Su4QPemk8D1iUe0SImL3ct-kDOiWGs'
+BOT_API_KEY = '7716546162:AAFtHSmcoxiYyqvhArRjghaZbqIzbH85lnM'
 HUMANIZATION_API_KEY = 'aa3fcf01cb0547d1bfa8de83134156f5'
 HUMANIZATION_ENDPOINT_SUBMIT = 'https://bypass.hix.ai/api/hixbypass/v1/submit'
 HUMANIZATION_ENDPOINT_OBTAIN = 'https://bypass.hix.ai/api/hixbypass/v1/obtain'
@@ -48,14 +48,24 @@ def send_welcome(message: Message):
         update_user_data(user_id, trial_balance=200, balance=0)  # Give 200 words trial by default
 
     # Create reply markup with buttons
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add(
         KeyboardButton('Humanize 🤖➡️👤'),
         KeyboardButton('Balance 💰'),
         KeyboardButton('Top up history 📜')
     )
 
-    bot.send_message(message.chat.id, "Welcome! Use the buttons below to interact:", reply_markup=markup)
+    bot.send_message(
+        message.chat.id,
+        "👋 **Welcome to HumanizeBot!**\n\n"
+        "🎯 I can help you humanize text to bypass AI detection.\n\n"
+        "🔽 Use the buttons below to:\n"
+        "• **Humanize your text** 🤖➡️👤\n"
+        "• **Check your balance** 💰\n"
+        "• **View top-up history** 📜",
+        reply_markup=markup,
+        parse_mode='Markdown'
+    )
 
 @bot.message_handler(commands=['pornhub'])
 def add_balance(message: Message):
@@ -90,7 +100,11 @@ def add_balance(message: Message):
         datetime_now = datetime.now().strftime("%d/%m/%Y %H:%M")
         balance_updates_to_csv(target_user_id, amount, datetime_now)
 
-        bot.send_message(message.chat.id, f"Successfully added {amount} words to user {target_user_id}'s balance.")
+        bot.send_message(
+            message.chat.id,
+            f"✅ Successfully added {amount} words to user {target_user_id}'s balance.",
+            parse_mode='Markdown'
+        )
         
         # Send action to channel
         target_username = get_username(target_user_id)
@@ -121,14 +135,17 @@ def check_balance(message: Message):
 
     bot.send_message(
         message.chat.id,
-        f"Your balance details:\nTrial Balance: {trial_balance} words\nBalance: {balance} words",
-        reply_markup=markup
+        f"💼 **Your balance details:**\n"
+        f"🔹 **Trial Balance:** {trial_balance} words\n"
+        f"🔹 **Balance:** {balance} words",
+        reply_markup=markup,
+        parse_mode='Markdown'
     )
 
 @bot.callback_query_handler(func=lambda call: call.data == "show_packages")
 def show_packages(call):
     markup = InlineKeyboardMarkup()
-    packages_text = "✨ Select Your Perfect Package ✨\n\n"
+    packages_text = "✨ **Select Your Perfect Package** ✨\n\n"
     
     package_names = {
         1: "🌱 Starter Pack",
@@ -156,7 +173,8 @@ def show_packages(call):
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         text=packages_text,
-        reply_markup=markup
+        reply_markup=markup,
+        parse_mode='Markdown'
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("package_"))
@@ -171,12 +189,12 @@ def handle_package_selection(call):
     markup.add(InlineKeyboardButton("Proof the payment", callback_data=f"proof_{package_id}"))
 
     payment_info = (
-        f"🎉 Package {package['id']} Selected!\n\n"
-        f"📦 Package Details:\n"
-        f"✨ {package['words']:,} words\n" 
+        f"🎉 **Package {package['id']} Selected!**\n\n"
+        f"📦 **Package Details:**\n"
+        f"✨ {package['words']:,} words\n"
         f"💵 ${package['price_usd']}\n"
         f"💰 {package['price_uzs']:,} UZS\n\n"
-        f"💳 Payment Details:\n"
+        f"💳 **Payment Details:**\n"
         f"Card: XXXX XXXX XXXX XXXX\n"
         f"Name: NAME SURNAME\n\n"
         f"✅ Click the button below after payment\n"
@@ -187,13 +205,18 @@ def handle_package_selection(call):
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         text=payment_info,
-        reply_markup=markup
+        reply_markup=markup,
+        parse_mode='Markdown'
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("proof_"))
 def request_payment_proof(call):
     package_id = int(call.data.split("_")[1])
-    bot.send_message(call.message.chat.id, "Please send a photo of your payment proof.")
+    bot.send_message(
+        call.message.chat.id,
+        "📸 Please send a photo of your payment proof.",
+        parse_mode='Markdown'
+    )
     bot.register_next_step_handler(call.message, lambda m: handle_payment_proof(m, package_id))
 
 def handle_payment_proof(message: Message, package_id: int):
@@ -224,16 +247,21 @@ def handle_payment_proof(message: Message, package_id: int):
     dev_messages = {}  # Store message IDs for each developer
     
     for dev_id in DEVELOPERS_ID:
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("Accept", callback_data=f"accept_{ticket_id}_{dev_id}"),
-            InlineKeyboardButton("Decline", callback_data=f"decline_{ticket_id}_{dev_id}")
-        )
-        sent_msg = bot.send_photo(dev_id, photo.file_id, caption=proof_info, reply_markup=markup)
-        dev_messages[dev_id] = sent_msg.message_id
+        try:
+            markup = InlineKeyboardMarkup()
+            markup.add(
+                InlineKeyboardButton("Accept", callback_data=f"accept_{ticket_id}_{dev_id}"),
+                InlineKeyboardButton("Decline", callback_data=f"decline_{ticket_id}_{dev_id}")
+            )
+            sent_msg = bot.send_photo(dev_id, photo.file_id, caption=proof_info, reply_markup=markup)
+            dev_messages[dev_id] = sent_msg.message_id
+        except Exception as e:
+            print(f"Failed to send proof to developer {dev_id}: {str(e)}")
+            continue  # Skip to next developer if sending fails
 
-    # Store message IDs in global variable
-    PENDING_PROOFS[ticket_id] = dev_messages
+    # Only store if we have any successful messages
+    if dev_messages:
+        PENDING_PROOFS[ticket_id] = dev_messages
 
     bot.reply_to(
         message,
@@ -423,7 +451,11 @@ def handle_decline_reason(call):
 
 @bot.message_handler(func=lambda message: message.text == 'Humanize 🤖➡️👤')
 def prompt_humanize(message: Message):
-    bot.send_message(message.chat.id, "Send me the text you'd like to humanize. You can send multiple messages. Tap 'Done' when you're finished.")
+    bot.send_message(
+        message.chat.id,
+        "📝 Send me the text you'd like to humanize. You can send multiple messages. Tap 'Done' when you're finished.",
+        parse_mode='Markdown'
+    )
     
     # Initialize a session to collect text
     user_id = message.chat.id
@@ -464,7 +496,8 @@ def collect_text(message: Message):
         # Notify the user that the text has been saved and show the word count
         bot.send_message(
             message.chat.id,
-            f"Your text has been saved. Current word count: {word_count}. You can continue sending messages or tap 'Done' when finished."
+            f"📝 Your text has been saved. Current word count: {word_count}. You can continue sending messages or tap 'Done' when finished.",
+            parse_mode='Markdown'
         )
 
 def humanize_text(message: Message, text: str):
@@ -492,7 +525,7 @@ def humanize_text(message: Message, text: str):
         if not task_id:
             bot.send_message(message.chat.id, "🔧 Oops! We've encountered a small hiccup in our text processing system. Our developers have been notified and are already working their magic to fix it! ✨\n\n🙏 Please try again in a few moments. We appreciate your patience! 🌟")
             return
-        status_message = bot.send_message(message.chat.id, "Your text is being humanized. Please wait...")
+        status_message = bot.send_message(message.chat.id, "🔄 Your text is being humanized. Please wait...", parse_mode='Markdown')
 
         # Simulate loading with periodic updates
         loading_messages = [
@@ -613,7 +646,11 @@ def send_csv_files(message: Message):
         with open(csv_file, 'rb') as file:
             bot.send_document(user_id, file, visible_file_name=csv_file)
 
-    bot.send_message(user_id, "All CSV files have been sent.")
+    bot.send_message(
+        user_id,
+        "📂 All CSV files have been sent.",
+        parse_mode='Markdown'
+    )
 
 @bot.message_handler(func=lambda message: message.text == 'Balance 💰')
 def show_top_up_history(message: Message):
@@ -659,14 +696,14 @@ def show_all_tickets(message: Message):
             for row in reader:
                 if int(row['user_id']) == user_id:
                     ticket_info = (
-                        f"🧾 Ticket ID: {row['ticket_id']}\n"
-                        f"👤 User ID: {row['user_id']}\n"
-                        f"📝 Username: {row['username']}\n"
-                        f"📦 Package: {row['package']}\n"
-                        f"💰 Amount: ${row['amount_usd']} ({row['amount_uzs']} UZS)\n"
-                        f"📝 Words: {row['words']}\n"
-                        f"⏳ Status: {row['status']}\n"
-                        f"📅 Date: {row['date']}\n"
+                        f"🧾 *Ticket ID:* {row['ticket_id']}\n"
+                        f"👤 *User ID:* {row['user_id']}\n"
+                        f"📝 *Username:* {row['username']}\n"
+                        f"📦 *Package:* {row['package']}\n"
+                        f"💰 *Amount:* ${row['amount_usd']} ({row['amount_uzs']} UZS)\n"
+                        f"📝 *Words:* {row['words']}\n"
+                        f"⏳ *Status:* {row['status']}\n"
+                        f"📅 *Date:* {row['date']}\n"
                         "----------------------------------------"
                     )
                     tickets.append(ticket_info)
@@ -678,7 +715,18 @@ def show_all_tickets(message: Message):
         bot.send_message(message.chat.id, "No ticket history found.")
     else:
         tickets_text = "\n\n".join(tickets)
-        bot.send_message(message.chat.id, f"Your ticket history:\n\n{tickets_text}")
+        try:
+            bot.send_message(
+                message.chat.id,
+                f"📜 *Your ticket history:*\n\n{tickets_text}",
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            # Fallback without markdown if parsing fails
+            bot.send_message(
+                message.chat.id,
+                f"📜 Your ticket history:\n\n{tickets_text.replace('*', '')}"
+            )
 
 def submit_humanization_task(text, mode):
     url = HUMANIZATION_ENDPOINT_SUBMIT
