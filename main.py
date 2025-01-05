@@ -195,8 +195,8 @@ def handle_package_selection(call):
         f"💵 ${package['price_usd']}\n"
         f"💰 {package['price_uzs']:,} UZS\n\n"
         f"💳 **Payment Details:**\n"
-        f"Card: XXXX XXXX XXXX XXXX\n"
-        f"Name: NAME SURNAME\n\n"
+        f"Card: 9860 2466 0168 6081\n"
+        f"Name: M ABDURASHIDOV\n\n"
         f"✅ Click the button below after payment\n"
         f"    to submit your proof!"
     )
@@ -395,11 +395,11 @@ def handle_decline_reason(call):
 
     # Messages for user
     if reason == "amount":
-        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to the payment amount incorrect.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
+        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to the payment amount incorrect.\n\nIf you think this is a mistake, please contact the admin at @cheater_joseph.\n\n\nSorry for the inconvenience."
     elif reason == "received": 
-        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined because the payment was not received. Please ensure the payment was sent correctly.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
+        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined because the payment was not received. Please ensure the payment was sent correctly.\n\nIf you think this is a mistake, please contact the admin at @cheater_joseph.\n\n\nSorry for the inconvenience."
     elif reason == "proof":
-        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to an issue with the proof provided in the screenshot of the payment. Please send a clearer proof of payment.\n\nIf you think this is a mistake, please contact the admin at @admin.\n\n\nSorry for the inconvenience."
+        decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to an issue with the proof provided in the screenshot of the payment. Please send a clearer proof of payment.\n\nIf you think this is a mistake, please contact the admin at @cheater_joseph.\n\n\nSorry for the inconvenience."
 
     # Send message to user
     bot.send_message(user_id, decline_message)
