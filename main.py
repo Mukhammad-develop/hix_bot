@@ -461,10 +461,22 @@ def prompt_humanize(message: Message):
     user_id = message.chat.id
     bot_data[user_id] = {"text": "", "collecting": True}
 
-    # Create reply markup with a "Done" button
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton('Done'))
+    # Create reply markup with "Done" and "Cancel" buttons
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(KeyboardButton('Done'), KeyboardButton('Cancel'))
     bot.send_message(message.chat.id, "Waiting for your text...", reply_markup=markup)
+
+@bot.message_handler(func=lambda message: message.text == 'Cancel')
+def cancel_text_collection(message: Message):
+    user_id = message.chat.id
+    if user_id in bot_data:
+        bot_data[user_id]["collecting"] = False
+        bot_data[user_id]["text"] = ""  # Clear any collected text
+        bot.send_message(message.chat.id, "Text collection has been canceled.", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(
+            KeyboardButton('Humanize 🤖➡️👤'),
+            KeyboardButton('Balance 💰'),
+            KeyboardButton('Top up history 📜')
+        ))
 
 @bot.message_handler(func=lambda message: message.text == 'Done')
 def finish_text_collection(message: Message):
@@ -615,7 +627,7 @@ def humanize_text(message: Message, text: str):
             return
 
         # Add main menu reply markup
-        main_menu_markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        main_menu_markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
         main_menu_markup.add(
             KeyboardButton('Humanize 🤖➡️👤'),
             KeyboardButton('Balance 💰'),
