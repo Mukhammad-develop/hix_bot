@@ -708,14 +708,14 @@ def show_all_tickets(message: Message):
             for row in reader:
                 if int(row['user_id']) == user_id:
                     ticket_info = (
-                        f"🧾 *Ticket ID:* {row['ticket_id']}\n"
-                        f"👤 *User ID:* {row['user_id']}\n"
-                        f"📝 *Username:* {row['username']}\n"
-                        f"📦 *Package:* {row['package']}\n"
-                        f"💰 *Amount:* ${row['amount_usd']} ({row['amount_uzs']} UZS)\n"
-                        f"📝 *Words:* {row['words']}\n"
-                        f"⏳ *Status:* {row['status']}\n"
-                        f"📅 *Date:* {row['date']}\n"
+                        f"🧾 Ticket ID: {row['ticket_id']}\n"
+                        f"👤 User ID: {row['user_id']}\n"
+                        f"📝 Username: {row['username']}\n"
+                        f"📦 Package: {row['package']}\n"
+                        f"💰 Amount: ${row['amount_usd']} ({row['amount_uzs']} UZS)\n"
+                        f"📝 Words: {row['words']}\n"
+                        f"⏳ Status: {row['status']}\n"
+                        f"📅 Date: {row['date']}\n"
                         "----------------------------------------"
                     )
                     tickets.append(ticket_info)
@@ -730,7 +730,7 @@ def show_all_tickets(message: Message):
         try:
             bot.send_message(
                 message.chat.id,
-                f"📜 *Your ticket history:*\n\n{tickets_text}",
+                f"📜 Your ticket history:\n\n{tickets_text}",
                 parse_mode='Markdown'
             )
         except Exception as e:
