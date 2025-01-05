@@ -447,10 +447,54 @@ def finish_text_collection(message: Message):
             bot_data[user_id]["collecting"] = True  # Allow user to continue sending text
             return
         
-        # Send initial processing message
-        status_message = bot.send_message(message.chat.id, "Processing your text...", reply_markup=ReplyKeyboardMarkup())
+        # Proceed to humanize the collected text
+        humanize_text(message, collected_text)
+    else:
+        bot.send_message(message.chat.id, "No text collected. Please start again.")
+
+@bot.message_handler(func=lambda message: message.chat.id in bot_data and bot_data[message.chat.id]["collecting"])
+def collect_text(message: Message):
+    user_id = message.chat.id
+    if user_id in bot_data:
+        bot_data[user_id]["text"] += " " + message.text
         
-        # Define loading messages
+        # Calculate the current word count
+        word_count = len(bot_data[user_id]["text"].split())
+        
+        # Notify the user that the text has been saved and show the word count
+        bot.send_message(
+            message.chat.id,
+            f"Your text has been saved. Current word count: {word_count}. You can continue sending messages or tap 'Done' when finished."
+        )
+
+def humanize_text(message: Message, text: str):
+    user_id = message.chat.id
+    user_data = get_user_data(user_id)
+
+    if not user_data:
+        bot.send_message(message.chat.id, "Please use /start to register first.")
+        return
+
+    trial_balance = int(user_data['trial_balance'])
+    balance = int(user_data['balance'])
+
+    if trial_balance <= 0 and balance <= 0:
+        bot.send_message(message.chat.id, "You have no remaining trials or balance. Please contact support for more access.")
+        return
+
+    if len(text.split()) < 50:
+        bot.send_message(message.chat.id, "The input text must contain at least 50 words.")
+        return
+
+    try:
+        # Submit the humanization task
+        task_id = submit_humanization_task(text, user_mode)
+        if not task_id:
+            bot.send_message(message.chat.id, "🔧 Oops! We've encountered a small hiccup in our text processing system. Our developers have been notified and are already working their magic to fix it! ✨\n\n🙏 Please try again in a few moments. We appreciate your patience! 🌟")
+            return
+        status_message = bot.send_message(message.chat.id, "Your text is being humanized. Please wait...")
+
+        # Simulate loading with periodic updates
         loading_messages = [
             "Processing your text. 🔄",
             "Processing your text.. 🔄",
@@ -506,7 +550,7 @@ def finish_text_collection(message: Message):
         ]
         
         # duration
-        loading_duration = 50
+        loading_duration = 50  # Adjust this duration as needed
         
         # Simulate typing and change messages
         for i in range(loading_duration+1):
@@ -515,59 +559,19 @@ def finish_text_collection(message: Message):
                 bot.edit_message_text(
                     chat_id=message.chat.id,
                     message_id=status_message.message_id,  # Use the status message ID
-                    text=f"{loading_messages[i % len(loading_messages)]}"+f'{i}'+'/'+f'{loading_duration}'
+                    text=f"{loading_messages[i % len(loading_messages)]} {i}/{loading_duration}"
                 )
             except Exception as e:
                 print(f"Failed to edit message: {e}")
-            time.sleep(0.5)
-        
-        # Proceed to humanize the collected text
-        humanize_text(message, collected_text)
-    else:
-        bot.send_message(message.chat.id, "No text collected. Please start again.")
+            time.sleep(0.5)  # Ensure this line is not commented out
 
-@bot.message_handler(func=lambda message: message.chat.id in bot_data and bot_data[message.chat.id]["collecting"])
-def collect_text(message: Message):
-    user_id = message.chat.id
-    if user_id in bot_data:
-        bot_data[user_id]["text"] += " " + message.text
-        
-        # Calculate the current word count
-        word_count = len(bot_data[user_id]["text"].split())
-        
-        # Notify the user that the text has been saved and show the word count
-        bot.send_message(
-            message.chat.id,
-            f"Your text has been saved. Current word count: {word_count}. You can continue sending messages or tap 'Done' when finished."
-        )
-
-def humanize_text(message: Message, text: str):
-    user_id = message.chat.id
-    user_data = get_user_data(user_id)
-
-    if not user_data:
-        bot.send_message(message.chat.id, "Please use /start to register first.")
-        return
-
-    trial_balance = int(user_data['trial_balance'])
-    balance = int(user_data['balance'])
-
-    if trial_balance <= 0 and balance <= 0:
-        bot.send_message(message.chat.id, "You have no remaining trials or balance. Please contact support for more access.")
-        return
-
-    if len(text.split()) < 50:
-        bot.send_message(message.chat.id, "The input text must contain at least 50 words.")
-        return
-
-    try:
-        # Simulate the humanization process
-        humanized_text = "Simulated humanized text"  # Replace with actual humanization logic
+        # Obtain the humanized text
+        humanized_text = obtain_humanized_text(task_id)
 
         bot.reply_to(message, f"Humanized text (Mode: {user_mode}):\n\n{humanized_text}")
 
         # Deduct words used from trial balance first, then balance
-        words_used = 50  # Example word count
+        words_used = len(humanized_text.split())
         if trial_balance >= words_used:
             update_user_data(user_id, trial_balance=trial_balance - words_used)
         elif trial_balance + balance >= words_used:
@@ -675,6 +679,49 @@ def show_all_tickets(message: Message):
     else:
         tickets_text = "\n\n".join(tickets)
         bot.send_message(message.chat.id, f"Your ticket history:\n\n{tickets_text}")
+
+def submit_humanization_task(text, mode):
+    url = HUMANIZATION_ENDPOINT_SUBMIT
+    headers = {
+        'api-key': HUMANIZATION_API_KEY,
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'input': text,
+        'mode': mode
+    }
+    response = requests.post(url, headers=headers, json=data)
+    print(response.json())
+    if response.status_code == 200:
+        result = response.json()
+        if result['err_code'] == 0:
+            return result['data']['task_id']
+        else:
+            for dev_id in DEVELOPERS_ID:
+                bot.send_message(dev_id, f"Error in submission: {result['err_msg']}")
+            return False
+    else:
+        for dev_id in DEVELOPERS_ID:
+            bot.send_message(dev_id, f"Failed to submit task: {response.status_code}")
+        return False
+
+def obtain_humanized_text(task_id):
+    url = HUMANIZATION_ENDPOINT_OBTAIN
+    headers = {
+        'api-key': HUMANIZATION_API_KEY
+    }
+    params = {
+        'task_id': task_id
+    }
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code == 200:
+        result = response.json()
+        if result['err_code'] == 0:
+            return result['data']['output']
+        else:
+            raise Exception(f"Error in obtaining result: {result['err_msg']}")
+    else:
+        raise Exception(f"Failed to obtain task result: {response.status_code}")
 
 if __name__ == "__main__":
     initialize_csv()
