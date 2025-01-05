@@ -222,6 +222,7 @@ def request_payment_proof(call):
 def handle_payment_proof(message: Message, package_id: int):
     if not message.photo:
         bot.send_message(message.chat.id, "Please send a photo of your payment proof.")
+        bot.register_next_step_handler(message, lambda m: handle_payment_proof(m, package_id))
         return
 
     package = next((pkg for pkg in PACKAGES if pkg["id"] == package_id), None)
@@ -485,9 +486,9 @@ def finish_text_collection(message: Message):
         bot_data[user_id]["collecting"] = False
         collected_text = bot_data[user_id]["text"]
         
-        # Check if the collected text contains at least 50 words
-        if len(collected_text.split()) < 50:
-            bot.send_message(message.chat.id, "The input text must contain at least 50 words. Please continue sending your text.")
+        # Check if the collected text contains at least 100 words
+        if len(collected_text.split()) < 100:
+            bot.send_message(message.chat.id, "The input text must contain at least 100 words. Please continue sending your text.")
             bot_data[user_id]["collecting"] = True  # Allow user to continue sending text
             return
         
@@ -523,19 +524,42 @@ def humanize_text(message: Message, text: str):
     trial_balance = int(user_data['trial_balance'])
     balance = int(user_data['balance'])
 
-    if trial_balance <= 0 and balance <= 0:
+    total_balance = trial_balance + balance
+    required_words = len(text.split())
+
+    if total_balance <= 0:
         bot.send_message(message.chat.id, "You have no remaining trials or balance. Please contact support for more access.")
         return
 
-    if len(text.split()) < 50:
-        bot.send_message(message.chat.id, "The input text must contain at least 50 words.")
+    if required_words > total_balance:
+        bot.send_message(
+            message.chat.id, 
+            f"You need {required_words} words but only have {total_balance} words available in your balance. Please top up or contact support for more access.",
+            reply_markup=ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(
+                KeyboardButton('Humanize 🤖➡️👤'),
+                KeyboardButton('Balance 💰'),
+                KeyboardButton('Top up history 📜')
+            )
+        )
+        return
+
+    if len(text.split()) < 100:
+        bot.send_message(message.chat.id, "The input text must contain at least 100 words.")
         return
 
     try:
         # Submit the humanization task
         task_id = submit_humanization_task(text, user_mode)
         if not task_id:
-            bot.send_message(message.chat.id, "🔧 Oops! We've encountered a small hiccup in our text processing system. Our developers have been notified and are already working their magic to fix it! ✨\n\n🙏 Please try again in a few moments. We appreciate your patience! 🌟")
+            bot.send_message(
+                message.chat.id, 
+                "🔧 Oops! We've encountered a small hiccup in our text processing system. Our developers have been notified and are already working their magic to fix it! ✨\n\n🙏 Please try again in a few moments. We appreciate your patience! 🌟",
+                reply_markup=ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(
+                    KeyboardButton('Humanize 🤖➡️👤'),
+                    KeyboardButton('Balance 💰'),
+                    KeyboardButton('Top up history 📜')
+                )
+            )
             return
         status_message = bot.send_message(message.chat.id, "🔄 Your text is being humanized. Please wait...", parse_mode='Markdown')
 
