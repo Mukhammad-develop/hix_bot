@@ -452,19 +452,64 @@ def finish_text_collection(message: Message):
         
         # Define loading messages
         loading_messages = [
-            "Processing your text.",
-            "Processing your text..",
-            "Processing your text...",
-            "Almost there...",
-            "Just a moment...",
-            "Hang tight..."
+            "Processing your text. 🔄",
+            "Processing your text.. 🔄",
+            "Processing your text... 🔄",
+            "Analyzing text patterns 📊",
+            "Enhancing readability ✨",
+            "Optimizing word choices 📝",
+            "Refining sentence structure 🔄",
+            "Checking grammar patterns 📋",
+            "Improving flow and rhythm 🎵",
+            "Making it more natural 🌿",
+            "Adding human touch 🎯",
+            "Polishing the content ✨",
+            "Enhancing clarity 💡",
+            "Smoothing transitions 🔄",
+            "Adjusting tone and style 🎨",
+            "Fine-tuning expressions 🎯",
+            "Perfecting word flow 📝",
+            "Almost there... ⏳",
+            "Making final touches ✨",
+            "Just a moment longer ⌛",
+            "Working our magic 🪄",
+            "Crafting perfection 💫",
+            "Hang in there... 🎈",
+            "Getting closer 🎯",
+            "Processing continues ⚙️",
+            "Analyzing context 🔍",
+            "Reviewing changes 📋",
+            "Making it shine ✨",
+            "Finalizing edits ✏️",
+            "Double-checking ✔️",
+            "Nearly complete 🏁",
+            "Last few steps 👣",
+            "Wrapping things up 🎁",
+            "Final polishing 💎",
+            "Just about done ⭐",
+            "Adding finishing touches 🎨",
+            "Making it perfect 💯",
+            "Almost finished 🔔",
+            "Final review 📝",
+            "Last moments ⏱️",
+            "Getting there 🎯",
+            "Processing details 🔎",
+            "Refining output 💫",
+            "Smoothing edges ✨",
+            "Quality check ✅",
+            "Final phase 🎭",
+            "Last stretch 🏃",
+            "Almost ready 🎬",
+            "Completing process 🔄",
+            "Final touches 🌟",
+            "Done 🎉"
         ]
         
-        # Randomly choose a duration between 15 and 30 seconds
-        loading_duration = random.randint(15, 30)
+        # duration
+        loading_duration = 50
         
         # Simulate typing and change messages
-        for i in range(loading_duration):
+        for i in range(loading_duration+1):
             bot.send_chat_action(message.chat.id, 'typing')
             try:
                 bot.edit_message_text(
@@ -474,7 +519,7 @@ def finish_text_collection(message: Message):
                 )
             except Exception as e:
                 print(f"Failed to edit message: {e}")
-            time.sleep(1)
+            time.sleep(0.5)
         
         # Proceed to humanize the collected text
         humanize_text(message, collected_text)
