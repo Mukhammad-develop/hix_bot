@@ -25,11 +25,16 @@ def initialize_ticket_data_csv():
 
 # Read user data from the CSV
 def get_user_data(user_id):
-    with open(DATABASE_FILE, mode='r') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            if int(row['user_id']) == user_id:
-                return row
+    try:
+        with open(DATABASE_FILE, mode='r', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if int(row['user_id']) == user_id:
+                    return row
+    except FileNotFoundError:
+        print(f"Error: {DATABASE_FILE} not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
     return None
 
 def get_username(user_id, csv_file_path='ticket_data.csv'):
@@ -99,7 +104,7 @@ def save_payment_to_csv(message, package):
     
     file_exists = os.path.exists('ticket_data.csv')
     
-    with open('ticket_data.csv', 'a', newline='') as file:
+    with open('ticket_data.csv', 'a', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, fieldnames=[
             'ticket_id', 'user_id', 'username', 'package',
             'amount_usd', 'amount_uzs', 'words', 'status', 'date'
@@ -119,8 +124,14 @@ def handle_payment_decision_to_csv(file_path, rows, fieldnames):
         writer.writerows(rows)
 
 def balance_updates_to_csv(target_user_id, amount, datetime):
+    file_exists = os.path.exists('balance_updates.csv')
+    
     with open('balance_updates.csv', mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow(['user_id', 'units', 'datetime'])  # Добавление названий столбцов
+        
+        # Write header only if the file is being created for the first time
+        if not file_exists:
+            writer.writerow(['user_id', 'units', 'datetime'])
+        
         writer.writerow([target_user_id, amount, datetime])
 
