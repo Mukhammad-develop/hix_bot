@@ -565,61 +565,20 @@ def humanize_text(message: Message, text: str):
 
         # Simulate loading with periodic updates
         loading_messages = [
-            "Processing your text. 🔄",
-            "Processing your text.. 🔄",
             "Processing your text... 🔄",
             "Analyzing text patterns 📊",
             "Enhancing readability ✨",
             "Optimizing word choices 📝",
             "Refining sentence structure 🔄",
-            "Checking grammar patterns 📋",
             "Improving flow and rhythm 🎵",
-            "Making it more natural 🌿",
             "Adding human touch 🎯",
             "Polishing the content ✨",
-            "Enhancing clarity 💡",
-            "Smoothing transitions 🔄",
-            "Adjusting tone and style 🎨",
-            "Fine-tuning expressions 🎯",
-            "Perfecting word flow 📝",
-            "Almost there... ⏳",
-            "Making final touches ✨",
-            "Just a moment longer ⌛",
-            "Working our magic 🪄",
-            "Crafting perfection 💫",
-            "Hang in there... 🎈",
-            "Getting closer 🎯",
-            "Processing continues ⚙️",
-            "Analyzing context 🔍",
-            "Reviewing changes 📋",
             "Making it shine ✨",
-            "Finalizing edits ✏️",
-            "Double-checking ✔️",
-            "Nearly complete 🏁",
-            "Last few steps 👣",
-            "Wrapping things up 🎁",
-            "Final polishing 💎",
-            "Just about done ⭐",
-            "Adding finishing touches 🎨",
-            "Making it perfect 💯",
-            "Almost finished 🔔",
-            "Final review 📝",
-            "Last moments ⏱️",
-            "Getting there 🎯",
-            "Processing details 🔎",
-            "Refining output 💫",
-            "Smoothing edges ✨",
-            "Quality check ✅",
-            "Final phase 🎭",
-            "Last stretch 🏃",
-            "Almost ready 🎬",
-            "Completing process 🔄",
-            "Final touches 🌟",
-            "Done 🎉"
+            "Finalizing edits ✏️"
         ]
         
         # duration
-        loading_duration = 50  # Adjust this duration as needed
+        loading_duration = 10  # Adjust this duration as needed
         
         # Simulate typing and change messages
         for i in range(loading_duration+1):
@@ -632,7 +591,7 @@ def humanize_text(message: Message, text: str):
                 )
             except Exception as e:
                 print(f"Failed to edit message: {e}")
-            time.sleep(0.5)  # Ensure this line is not commented out
+            time.sleep(1)  # Ensure this line is not commented out
 
         # Obtain the humanized text
         humanized_text = obtain_humanized_text(task_id)
