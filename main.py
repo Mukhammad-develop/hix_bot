@@ -21,11 +21,11 @@ bot = telebot.TeleBot(BOT_API_KEY)
 UZS_RATE = get_uzs_rate()
 
 PACKAGES = [
-    {"id": 1, "words": 2000, "price_usd": 5, "price_uzs": round_uzs(5 * UZS_RATE)},
-    {"id": 2, "words": 4000, "price_usd": 7, "price_uzs": round_uzs(7 * UZS_RATE)},
+    {"id": 1, "words": 2000, "price_usd": 3, "price_uzs": round_uzs(3 * UZS_RATE)},
+    {"id": 2, "words": 4000, "price_usd": 5, "price_uzs": round_uzs(5 * UZS_RATE)},
     {"id": 3, "words": 10000, "price_usd": 10, "price_uzs": round_uzs(10 * UZS_RATE)}, 
-    {"id": 4, "words": 20000, "price_usd": 16, "price_uzs": round_uzs(16 * UZS_RATE)},
-    {"id": 5, "words": 50000, "price_usd": 35, "price_uzs": round_uzs(35 * UZS_RATE)}
+    {"id": 4, "words": 15000, "price_usd": 13, "price_uzs": round_uzs(13 * UZS_RATE)},
+    {"id": 5, "words": 25000, "price_usd": 20, "price_uzs": round_uzs(20 * UZS_RATE)}
 ]
 
 CHANNEL_ID = '-1002459567258'  # Replace with your actual channel link
@@ -124,11 +124,29 @@ def check_balance(message: Message):
 @bot.callback_query_handler(func=lambda call: call.data == "show_packages")
 def show_packages(call):
     markup = InlineKeyboardMarkup()
-    packages_text = "Choose a package to top up:\n\n"
+    packages_text = "✨ Select Your Perfect Package ✨\n\n"
     
+    package_names = {
+        1: "🌱 Starter Pack",
+        2: "🌿 Saving Pack", 
+        3: "🌳 Pro Pack",
+        4: "🌺 Premium Pack",
+        5: "👑 Royal Pack"
+    }
+    
+    buttons = []
     for pkg in PACKAGES:
-        packages_text += f"{pkg['id']}. {pkg['words']:,} words ${pkg['price_usd']} = {pkg['price_uzs']:,} UZS\n"
-        markup.add(InlineKeyboardButton(f"Package {pkg['id']}", callback_data=f"package_{pkg['id']}"))
+        pkg_name = package_names[pkg['id']]
+        packages_text += f"{pkg_name}\n"
+        packages_text += f"      | {pkg['words']:,} words\n"
+        packages_text += f"      | ${pkg['price_usd']} = {pkg['price_uzs']:,} UZS\n\n"
+        
+        button_text = f" {pkg_name}"
+        buttons.append(InlineKeyboardButton(button_text, callback_data=f"package_{pkg['id']}"))
+    
+    # Add buttons one per row
+    for button in buttons:
+        markup.row(button)
 
     bot.edit_message_text(
         chat_id=call.message.chat.id,
@@ -149,14 +167,16 @@ def handle_package_selection(call):
     markup.add(InlineKeyboardButton("Proof the payment", callback_data=f"proof_{package_id}"))
 
     payment_info = (
-        f"You selected Package {package['id']}:\n"
-        f"• {package['words']:,} words\n"
-        f"• ${package['price_usd']}\n"
-        f"• {package['price_uzs']:,} UZS\n\n"
-        f"Please send payment to:\n"
-        f"Card number: XXXX XXXX XXXX XXXX\n"
-        f"Card holder: NAME SURNAME\n\n"
-        f"After payment, click the button below to submit your proof."
+        f"🎉 Package {package['id']} Selected!\n\n"
+        f"📦 Package Details:\n"
+        f"✨ {package['words']:,} words\n" 
+        f"💵 ${package['price_usd']}\n"
+        f"💰 {package['price_uzs']:,} UZS\n\n"
+        f"💳 Payment Details:\n"
+        f"Card: XXXX XXXX XXXX XXXX\n"
+        f"Name: NAME SURNAME\n\n"
+        f"✅ Click the button below after payment\n"
+        f"    to submit your proof!"
     )
 
     bot.edit_message_text(
