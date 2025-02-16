@@ -45,7 +45,7 @@ def send_action_to_channel(action_message):
 def send_welcome(message: Message):
     user_id = message.chat.id
     if not get_user_data(user_id):
-        update_user_data(user_id, trial_balance=200, balance=0)  # Give 200 words trial by default
+        update_user_data(user_id, trial_balance=2000, balance=0)  # Give 2000 words trial by default
 
     # Create reply markup with buttons
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -603,7 +603,12 @@ def humanize_text(message: Message, text: str):
         humanized_text = obtain_humanized_text(task_id)
 
         bot.reply_to(message, f"Humanized text (Mode: {user_mode}):\n\n{humanized_text}")
-
+        # Save the humanized text as a .txt file with the task ID as the filename
+        with open(f"{task_id}.txt", "w") as file:
+            file.write(humanized_text)
+        # Send the humanized text as a .txt file to the user
+        with open(f"{task_id}.txt", "rb") as file:
+            bot.send_document(message.chat.id, file)
         # Deduct words used from trial balance first, then balance
         words_used = len(humanized_text.split())
         if trial_balance >= words_used:
