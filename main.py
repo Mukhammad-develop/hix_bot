@@ -25,7 +25,7 @@ UZS_RATE = get_uzs_rate()
 PACKAGES = [
     {"id": 1, "words": 2000, "price_usd": 3, "price_uzs": round_uzs(3 * UZS_RATE)},
     {"id": 2, "words": 4000, "price_usd": 5, "price_uzs": round_uzs(5 * UZS_RATE)},
-    {"id": 3, "words": 10000, "price_usd": 10, "price_uzs": round_uzs(10 * UZS_RATE)}, 
+    {"id": 3, "words": 10000, "price_usd": 10, "price_uzs": round_uzs(10 * UZS_RATE)},
     {"id": 4, "words": 15000, "price_usd": 13, "price_uzs": round_uzs(13 * UZS_RATE)},
     {"id": 5, "words": 25000, "price_usd": 20, "price_uzs": round_uzs(20 * UZS_RATE)}
 ]
@@ -111,7 +111,7 @@ def add_balance(message: Message):
             f"✅ Successfully added {amount} words to user {target_user_id}'s balance.",
             parse_mode='Markdown'
         )
-        
+
         # Send action to channel
         target_username = get_username(target_user_id)
         send_action_to_channel(f"✅\n /pornhub were been used and\n {amount} words added to: \n\nUSER_ID: #{target_user_id} \nUSERNAME: {target_username} \nNEW BALANCE: {new_balance} words.")
@@ -152,25 +152,25 @@ def check_balance(message: Message):
 def show_packages(call):
     markup = InlineKeyboardMarkup()
     packages_text = "✨ **Select Your Perfect Package** ✨\n\n"
-    
+
     package_names = {
         1: "🌱 Starter Pack",
-        2: "🌿 Saving Pack", 
+        2: "🌿 Saving Pack",
         3: "🌳 Pro Pack",
         4: "🌺 Premium Pack",
         5: "👑 Royal Pack"
     }
-    
+
     buttons = []
     for pkg in PACKAGES:
         pkg_name = package_names[pkg['id']]
         packages_text += f"{pkg_name}\n"
         packages_text += f"      | {pkg['words']:,} words\n"
         packages_text += f"      | ${pkg['price_usd']} = {pkg['price_uzs']:,} UZS\n\n"
-        
+
         button_text = f" {pkg_name}"
         buttons.append(InlineKeyboardButton(button_text, callback_data=f"package_{pkg['id']}"))
-    
+
     # Add buttons one per row
     for button in buttons:
         markup.row(button)
@@ -187,7 +187,7 @@ def show_packages(call):
 def handle_package_selection(call):
     package_id = int(call.data.split("_")[1])
     package = next((pkg for pkg in PACKAGES if pkg["id"] == package_id), None)
-    
+
     if not package:
         return
 
@@ -237,7 +237,7 @@ def handle_payment_proof(message: Message, package_id: int):
 
     # Notify all developers
     ticket_id, current_time = save_payment_to_csv(message, package)
-    
+
     proof_info = (
         f"🔔 New payment proof received!\n\n"
         f"🧾 Ticket ID          {ticket_id}\n"
@@ -252,7 +252,7 @@ def handle_payment_proof(message: Message, package_id: int):
 
     photo = message.photo[-1]
     dev_messages = {}  # Store message IDs for each developer
-    
+
     for dev_id in DEVELOPERS_ID:
         try:
             markup = InlineKeyboardMarkup()
@@ -312,7 +312,7 @@ def handle_payment_decision(call):
         if not ticket:
             bot.send_message(call.message.chat.id, "Ticket not found.")
             return
-        
+
         user_id = int(ticket['user_id'])
 
     # Get message IDs from global variable
@@ -327,7 +327,7 @@ def handle_payment_decision(call):
         if user_data:
             new_balance = int(user_data['balance']) + words
             update_user_data(user_id, balance=new_balance)
-            
+
             # Send notifications
             bot.send_message(user_id, f"✅\nYour payment has been accepted. {words} words have been added to your balance. \n\n🎉   Your new balance is {new_balance} words.")
             send_action_to_channel(
@@ -349,7 +349,7 @@ def handle_payment_decision(call):
                     bot.delete_message(dev_id, message_id)
                 except Exception as e:
                     print(f"Failed to delete message {message_id} for developer {dev_id}: {str(e)}")
-            
+
             del PENDING_PROOFS[ticket_id]
 
             # Update the status in the ticket_data.csv
@@ -402,21 +402,21 @@ def handle_decline_reason(call):
     # Messages for user
     if reason == "amount":
         decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to the payment amount incorrect.\n\nIf you think this is a mistake, please contact the admin at @cheater_joseph.\n\n\nSorry for the inconvenience."
-    elif reason == "received": 
+    elif reason == "received":
         decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined because the payment was not received. Please ensure the payment was sent correctly.\n\nIf you think this is a mistake, please contact the admin at @cheater_joseph.\n\n\nSorry for the inconvenience."
     elif reason == "proof":
         decline_message = f"‼️\nYour ticket: {ticket_id} request to top-up was declined due to an issue with the proof provided in the screenshot of the payment. Please send a clearer proof of payment.\n\nIf you think this is a mistake, please contact the admin at @cheater_joseph.\n\n\nSorry for the inconvenience."
 
     # Send message to user
     bot.send_message(user_id, decline_message)
-    
+
     # Update admin's message caption instead of text
     bot.edit_message_caption(
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         caption=f"‼️\nTicket {ticket_id} has been declined."
     )
-    
+
     # Confirmation for admin
     bot.answer_callback_query(
         call.id,
@@ -452,7 +452,7 @@ def handle_decline_reason(call):
                 bot.delete_message(dev_id, message_id)
             except Exception as e:
                 print(f"Failed to delete message {message_id} for developer {dev_id}: {str(e)}")
-        
+
         # Clean up the stored message IDs
         del PENDING_PROOFS[ticket_id]
 
@@ -463,7 +463,7 @@ def prompt_humanize(message: Message):
         "📝 Send me the text you'd like to humanize. You can send multiple messages. Tap 'Done' when you're finished.",
         parse_mode='Markdown'
     )
-    
+
     # Initialize a session to collect text
     user_id = message.chat.id
     bot_data[user_id] = {"text": "", "collecting": True}
@@ -491,13 +491,13 @@ def finish_text_collection(message: Message):
     if user_id in bot_data and bot_data[user_id]["collecting"]:
         bot_data[user_id]["collecting"] = False
         collected_text = bot_data[user_id]["text"]
-        
+
         # Check if the collected text contains at least 100 words
         if len(collected_text.split()) < 100:
             bot.send_message(message.chat.id, "The input text must contain at least 100 words. Please continue sending your text.")
             bot_data[user_id]["collecting"] = True  # Allow user to continue sending text
             return
-        
+
         # Proceed to humanize the collected text
         humanize_text(message, collected_text)
     else:
@@ -508,10 +508,10 @@ def collect_text(message: Message):
     user_id = message.chat.id
     if user_id in bot_data:
         bot_data[user_id]["text"] += " " + message.text
-        
+
         # Calculate the current word count
         word_count = len(bot_data[user_id]["text"].split())
-        
+
         # Notify the user that the text has been saved and show the word count
         bot.send_message(
             message.chat.id,
@@ -539,7 +539,7 @@ def humanize_text(message: Message, text: str):
 
     if required_words > total_balance:
         bot.send_message(
-            message.chat.id, 
+            message.chat.id,
             f"You need {required_words} words but only have {total_balance} words available in your balance. Please top up or contact support for more access.",
             reply_markup=ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(
                 KeyboardButton('Humanize 🤖➡️👤'),
@@ -558,7 +558,7 @@ def humanize_text(message: Message, text: str):
         task_id = submit_humanization_task(text, user_mode)
         if not task_id:
             bot.send_message(
-                message.chat.id, 
+                message.chat.id,
                 "🔧 Oops! We've encountered a small hiccup in our text processing system. Our developers have been notified and are already working their magic to fix it! ✨\n\n🙏 Please try again in a few moments. We appreciate your patience! 🌟",
                 reply_markup=ReplyKeyboardMarkup(resize_keyboard=True, row_width=2).add(
                     KeyboardButton('Humanize 🤖➡️👤'),
@@ -582,10 +582,10 @@ def humanize_text(message: Message, text: str):
             "Making it shine ✨",
             "Finalizing edits ✏️"
         ]
-        
+
         # duration
         loading_duration = 10  # Adjust this duration as needed
-        
+
         # Simulate typing and change messages
         for i in range(loading_duration+1):
             bot.send_chat_action(message.chat.id, 'typing')
