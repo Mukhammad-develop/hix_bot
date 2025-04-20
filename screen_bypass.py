@@ -4,7 +4,7 @@ import os
 import time
 import json
 import random
-import pyautogui
+# import pyautogui
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -18,7 +18,7 @@ TARGET_URL = "https://hix.ai/app/bypass-ai-detection/dashboard"
 
 # Global driver instance
 _driver = None
-pyautogui.FAILSAFE = False
+# pyautogui.FAILSAFE = False
 
 
 def launch_driver_once():
