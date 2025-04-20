@@ -1,2 +1,5 @@
 telebot
 requests
+undetected-chromedriver
+selenium
+pyautogui
